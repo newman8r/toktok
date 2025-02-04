@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import 'dart:io';
+import 'feed_page.dart';
 
 class VideoPreviewPage extends StatefulWidget {
   final XFile videoFile;
@@ -58,6 +59,26 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
     HapticFeedback.mediumImpact();
   }
 
+  void _navigateToFeed() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => 
+          FeedPage(recordedVideos: [File(widget.videoFile.path)]),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutQuart;
+          var tween = Tween(begin: begin, end: end)
+              .chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+          return SlideTransition(position: offsetAnimation, child: child);
+        },
+        transitionDuration: caveTransition,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -81,9 +102,8 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
         children: [
           // Video Preview
           Positioned.fill(
-            child: Transform.scale(
-              scale: _controller.value.aspectRatio / 
-                    MediaQuery.of(context).size.aspectRatio,
+            child: Container(
+              color: Colors.black,
               child: Center(
                 child: AspectRatio(
                   aspectRatio: _controller.value.aspectRatio,
@@ -184,6 +204,46 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
               style: crystalHeading.copyWith(color: amethyst),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          color: caveShadow.withOpacity(0.3),
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 16,
+            bottom: 16,
+            left: 24,
+            right: 24,
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: silver,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Preview',
+                style: crystalHeading.copyWith(fontSize: 24),
+              ),
+              const Spacer(),
+              GemButton(
+                text: 'Use Video',
+                onPressed: _navigateToFeed,
+                gemColor: emerald,
+                isAnimated: true,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -333,50 +393,6 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
             _isPlaying ? Icons.pause : Icons.play_arrow,
             color: emerald,
             size: 40,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          color: caveShadow.withOpacity(0.3),
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 16,
-            bottom: 16,
-            left: 24,
-            right: 24,
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.arrow_back,
-                  color: silver,
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Preview',
-                style: crystalHeading.copyWith(fontSize: 24),
-              ),
-              const Spacer(),
-              GemButton(
-                text: 'Use Video',
-                onPressed: () {
-                  // TODO: Implement video selection
-                  HapticFeedback.mediumImpact();
-                  Navigator.pop(context);
-                },
-                gemColor: emerald,
-                isAnimated: true,
-              ),
-            ],
           ),
         ),
       ),

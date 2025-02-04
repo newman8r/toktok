@@ -218,54 +218,55 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
     }
 
     return Scaffold(
-      backgroundColor: deepCave,
-      body: Stack(
-        children: [
-          // Camera Preview
-          Center(
-            child: AspectRatio(
-              aspectRatio: 9.0 / 16.0,  // Fixed vertical video aspect ratio
-              child: ClipRect(
-                child: Transform.scale(
-                  scale: _getPreviewScale(),
-                  alignment: Alignment.center,
-                  child: CameraPreview(_controller!),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Camera Preview
+            Positioned.fill(
+              child: Container(
+                color: Colors.black,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 9 / 16,
+                    child: CameraPreview(_controller!),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Shimmering overlay
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _shimmerController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _CameraOverlayPainter(
-                    progress: _shimmerController.value,
-                    isRecording: _isRecording,
-                  ),
-                );
-              },
+            // Shimmering overlay
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _shimmerController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _CameraOverlayPainter(
+                      progress: _shimmerController.value,
+                      isRecording: _isRecording,
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          // Controls
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildControls(),
-          ),
+            // Controls
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildControls(),
+            ),
 
-          // Top Bar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _buildTopBar(),
-          ),
-        ],
+            // Top Bar
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildTopBar(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -493,25 +494,6 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
         ),
       ),
     );
-  }
-
-  double _getPreviewScale() {
-    if (_controller == null || !_controller!.value.isInitialized) {
-      return 1.0;
-    }
-    
-    // Calculate scale to fill 9:16 container while maintaining aspect ratio
-    final previewRatio = _controller!.value.aspectRatio;
-    final targetRatio = 9.0 / 16.0;
-    
-    // Scale to fill the 9:16 container
-    if (previewRatio > targetRatio) {
-      // Preview is wider than container, scale by height
-      return 1 / previewRatio * (16.0 / 9.0);
-    } else {
-      // Preview is taller than container, scale by width
-      return 1.0;
-    }
   }
 }
 
