@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import 'dart:ui' as ui;
+import 'camera_page.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -403,21 +404,89 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.cloud_upload_outlined,
-              size: 48,
-              color: silver.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Drag and drop your content here\nor click to browse',
-              style: gemText.copyWith(
-                color: silver.withOpacity(0.5),
-              ),
-              textAlign: TextAlign.center,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildUploadOption(
+                  icon: Icons.videocam,
+                  label: 'Record Video',
+                  color: emerald,
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => 
+                          const CameraPage(),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          const begin = Offset(1.0, 0.0);
+                          const end = Offset.zero;
+                          const curve = Curves.easeInOutQuart;
+                          var tween = Tween(begin: begin, end: end)
+                              .chain(CurveTween(curve: curve));
+                          var offsetAnimation = animation.drive(tween);
+                          return SlideTransition(position: offsetAnimation, child: child);
+                        },
+                        transitionDuration: caveTransition,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 32),
+                _buildUploadOption(
+                  icon: Icons.upload_file,
+                  label: 'Upload File',
+                  color: sapphire,
+                  onTap: () {
+                    // TODO: Implement file upload
+                    HapticFeedback.mediumImpact();
+                  },
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildUploadOption({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: gemText.copyWith(
+              color: silver,
+              fontSize: 14,
+            ),
+          ),
+        ],
       ),
     );
   }

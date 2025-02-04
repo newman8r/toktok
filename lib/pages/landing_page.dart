@@ -242,21 +242,26 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
             horizontal: 24,
             vertical: 16,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'TokTok',
-                style: crystalHeading.copyWith(fontSize: 24),
-              ),
-              Row(
-                children: [
-                  _buildNavItem('About'),
-                  _buildNavItem('Features'),
-                  _buildNavItem('Contact'),
-                ],
-              ),
-            ],
+          child: SafeArea(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'TokTok',
+                  style: crystalHeading.copyWith(fontSize: 24),
+                ),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildNavItem('About'),
+                      _buildNavItem('Features'),
+                      _buildNavItem('Contact'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -265,7 +270,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
 
   Widget _buildNavItem(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: MouseRegion(
         onEnter: (_) => _playGemSparkle(),
         child: Text(
