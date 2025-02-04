@@ -221,17 +221,15 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
       backgroundColor: deepCave,
       body: Stack(
         children: [
-          // Camera Preview with gem-like frame
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Transform.scale(
-                scale: _getPreviewScale(),
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 9 / 16, // Force standard mobile video ratio
-                    child: CameraPreview(_controller!),
-                  ),
+          // Camera Preview
+          Center(
+            child: AspectRatio(
+              aspectRatio: 9.0 / 16.0,  // Fixed vertical video aspect ratio
+              child: ClipRect(
+                child: Transform.scale(
+                  scale: _getPreviewScale(),
+                  alignment: Alignment.center,
+                  child: CameraPreview(_controller!),
                 ),
               ),
             ),
@@ -502,25 +500,18 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
       return 1.0;
     }
     
-    final size = MediaQuery.of(context).size;
-    final deviceRatio = size.width / size.height;
+    // Calculate scale to fill 9:16 container while maintaining aspect ratio
     final previewRatio = _controller!.value.aspectRatio;
-    
-    // We want to maintain 9:16 ratio for recording while filling the screen appropriately
     final targetRatio = 9.0 / 16.0;
     
-    // Calculate scale to fit the screen while maintaining aspect ratio
-    double scale;
-    if (deviceRatio > targetRatio) {
-      // Width is the constraint
-      scale = size.height / (size.width / previewRatio);
+    // Scale to fill the 9:16 container
+    if (previewRatio > targetRatio) {
+      // Preview is wider than container, scale by height
+      return 1 / previewRatio * (16.0 / 9.0);
     } else {
-      // Height is the constraint
-      scale = size.width / (size.height * previewRatio);
+      // Preview is taller than container, scale by width
+      return 1.0;
     }
-    
-    // Adjust scale to prevent zooming
-    return scale * 0.9; // Slightly reduce scale to show more of the preview
   }
 }
 
