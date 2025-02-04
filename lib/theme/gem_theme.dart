@@ -12,6 +12,9 @@ const Color deepCave = Color(0xFF1A1A1A);
 const Color caveShadow = Color(0xFF36454F);
 const Color crystalGlow = Color(0x1FFFFFFF);
 
+// Measurements
+const double emeraldCut = 12.0;  // Border radius for gem-cut shapes
+
 // Text Styles using Google Fonts
 TextStyle get crystalHeading => GoogleFonts.audiowide(
   fontSize: 32.0,
@@ -38,7 +41,7 @@ final ButtonStyle gemButton = ElevatedButton.styleFrom(
   backgroundColor: amethyst,
   foregroundColor: Colors.white,
   shape: BeveledRectangleBorder(
-    borderRadius: BorderRadius.circular(12.0),
+    borderRadius: BorderRadius.circular(emeraldCut),
   ),
   elevation: 8,
   shadowColor: crystalGlow,

@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import '../theme/gem_theme.dart';
 import '../widgets/cave_background.dart';
+import '../widgets/gem_button.dart';
+import 'creator_studio_page.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -186,16 +188,28 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
         parent: _crystalGrowthController,
         curve: Curves.easeOutBack,
       ),
-      child: ElevatedButton(
-        style: gemButton,
+      child: GemButton(
+        text: 'Enter the Mine',
         onPressed: () {
           HapticFeedback.mediumImpact();
-          // TODO: Navigate to main app
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const CreatorStudioPage(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeInOutQuart;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+                return SlideTransition(position: offsetAnimation, child: child);
+              },
+              transitionDuration: caveTransition,
+            ),
+          );
         },
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          child: Text('Enter the Mine'),
-        ),
+        gemColor: amethyst,
+        isAnimated: true,
       ),
     );
   }
