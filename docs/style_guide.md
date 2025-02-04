@@ -454,28 +454,161 @@ static final videoTransition = PageRouteBuilder(
 - Each thumbnail has a unique crystal shape based on engagement metrics
 - Playlists are displayed as connected gem clusters
 
-## Sound Design
+## Sound Design 🎵
 
-### Interaction Sounds
+### Binaural Beats
 ```dart
-static const audioEffects = {
-  'tap': 'crystal_tap.mp3',      // Light crystal chime
-  'success': 'gem_found.mp3',    // Triumphant crystal resonance
-  'refresh': 'cave_echo.mp3',    // Deep cave ambience
-  'error': 'crystal_crack.mp3',  // Subtle crack sound
+static const Map<String, double> binauralFrequencies = {
+  'sacred': 432.0,      // Natural harmony frequency
+  'love': 528.0,        // Healing properties
+  'problem': 741.0,     // Problem-solving enhancement
 };
 
-static const hapticEffects = {
-  'tap': HapticFeedback.lightImpact,    // Quick crystal tap
-  'success': HapticFeedback.mediumImpact,// Finding a gem
-  'special': HapticFeedback.heavyImpact, // Rare gem discovered
+static const binauralConfig = {
+  'baseVolume': 0.15,   // Subtle background presence
+  'fadeInDuration': Duration(seconds: 2),
+  'crossFadeDuration': Duration(milliseconds: 500),
 };
 ```
 
-### Ambient Sound
-- Background music changes based on scroll depth
-- Crystal resonance increases with engagement
-- Special sound effects for rare content discovery
+### Ethereal Sounds
+```dart
+static const etherealSoundscape = {
+  // Crystal-based sounds
+  'windChimes': {
+    'type': 'ambient',
+    'volume': 0.3,
+    'description': 'High-pitched crystal resonance',
+  },
+  'waterFlow': {
+    'type': 'ambient',
+    'volume': 0.25,
+    'description': 'Underground stream ambience',
+  },
+  'crystalEcho': {
+    'type': 'effect',
+    'volume': 0.4,
+    'description': 'Vast cave reverberations',
+  },
+  'mysticalWhisper': {
+    'type': 'effect',
+    'volume': 0.2,
+    'description': 'Subtle ethereal whispers',
+  },
+};
+```
+
+### Interaction Sounds
+```dart
+static const interactionSounds = {
+  // UI Feedback
+  'gemClick': {
+    'duration': Duration(milliseconds: 200),
+    'volume': 0.5,
+    'description': 'Crystal surface tap',
+  },
+  'crystalChime': {
+    'duration': Duration(milliseconds: 300),
+    'volume': 0.4,
+    'description': 'Melodic gem resonance',
+  },
+  'deepEcho': {
+    'duration': Duration(milliseconds: 600),
+    'volume': 0.35,
+    'description': 'Cave-like echo effect',
+  },
+};
+
+// Scroll Interactions
+static const scrollSounds = {
+  'gemShimmer': {
+    'trigger': 'onScroll',
+    'volume': 0.3,
+    'description': 'Light through crystals',
+  },
+  'crystalSlide': {
+    'trigger': 'onScrollEnd',
+    'volume': 0.4,
+    'description': 'Smooth crystal surface',
+  },
+};
+
+// Voice Commands
+static const voiceEffects = {
+  'magicStart': {
+    'duration': Duration(milliseconds: 400),
+    'volume': 0.45,
+    'description': 'Start voice command',
+  },
+  'magicEnd': {
+    'duration': Duration(milliseconds: 500),
+    'volume': 0.4,
+    'description': 'Complete voice command',
+  },
+};
+```
+
+### Content Creation
+```dart
+static const creationSounds = {
+  'startCreating': {
+    'duration': Duration(milliseconds: 600),
+    'volume': 0.5,
+    'description': 'Begin creative journey',
+  },
+  'finishCreating': {
+    'duration': Duration(seconds: 1),
+    'volume': 0.6,
+    'description': 'Triumphant completion',
+  },
+};
+```
+
+### Sound Guidelines
+
+#### Volume Levels
+- Binaural Beats: 15% (subtle background)
+- Ethereal Sounds: 30% (ambient atmosphere)
+- Interaction Sounds: 50% (clear feedback)
+
+#### Duration Guidelines
+```dart
+static const soundDurations = {
+  'short': Duration(milliseconds: 200),   // Clicks, taps
+  'medium': Duration(milliseconds: 500),  // Transitions
+  'long': Duration(milliseconds: 800),    // Achievements
+};
+```
+
+#### Implementation Requirements
+1. High-quality audio files (48kHz, 16-bit minimum)
+2. Seamless looping for binaural and ambient sounds
+3. Quick attack/short decay for interaction sounds
+4. Smooth fade transitions for ambient sounds
+5. Harmonious layering of multiple sound elements
+
+#### User Control
+```dart
+static const audioControls = {
+  'master': {
+    'default': 0.7,
+    'min': 0.0,
+    'max': 1.0,
+  },
+  'binaural': {
+    'default': true,
+    'independent': true,
+  },
+  'ambient': {
+    'default': 0.5,
+    'independent': true,
+  },
+  'interaction': {
+    'default': 0.8,
+    'independent': true,
+  },
+};
+```
 
 ## Gesture Patterns
 
