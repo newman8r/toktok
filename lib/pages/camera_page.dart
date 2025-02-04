@@ -40,18 +40,27 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
 
   Future<void> _initializeCamera() async {
     try {
-      // Request camera permission
-      final status = await Permission.camera.request();
-      if (status != PermissionStatus.granted) {
-        setState(() => _errorMessage = 'Camera permission is required to record videos');
+      // Request camera and microphone permissions first
+      Map<Permission, PermissionStatus> statuses = await [
+        Permission.camera,
+        Permission.microphone,
+      ].request();
+
+      // Check camera and microphone permissions
+      if (statuses[Permission.camera] != PermissionStatus.granted ||
+          statuses[Permission.microphone] != PermissionStatus.granted) {
+        setState(() => _errorMessage = 'Camera and microphone permissions are required');
         return;
       }
 
-      // Request microphone permission
-      final micStatus = await Permission.microphone.request();
-      if (micStatus != PermissionStatus.granted) {
-        setState(() => _errorMessage = 'Microphone permission is required to record videos');
-        return;
+      // For Android 10 and above, we don't need to request storage permission
+      // For older Android versions, request storage permission
+      if (await Permission.storage.status.isDenied) {
+        final storageStatus = await Permission.storage.request();
+        if (storageStatus.isDenied) {
+          debugPrint('Storage permission denied');
+          // Continue anyway as we might not need it on newer Android versions
+        }
       }
 
       final cameras = await availableCameras();
@@ -60,20 +69,42 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
         return;
       }
 
-      final camera = cameras.first;
+      // Try to find front camera
+      final frontCameras = cameras.where(
+        (camera) => camera.lensDirection == CameraLensDirection.front
+      ).toList();
+
+      // Use front camera if available, otherwise use the first available camera
+      final camera = frontCameras.isNotEmpty ? frontCameras.first : cameras.first;
+      _isFrontCamera = camera.lensDirection == CameraLensDirection.front;
+      
+      // Try to initialize with medium resolution first
       _controller = CameraController(
         camera,
-        ResolutionPreset.max,
+        ResolutionPreset.medium,
         enableAudio: true,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
 
-      await _controller!.initialize();
+      try {
+        await _controller!.initialize();
+      } catch (e) {
+        // If medium fails, try with low resolution
+        debugPrint('Failed to initialize with medium resolution, trying low: $e');
+        await _controller!.dispose();
+        
+        _controller = CameraController(
+          camera,
+          ResolutionPreset.low,
+          enableAudio: true,
+          imageFormatGroup: ImageFormatGroup.jpeg,
+        );
+        
+        await _controller!.initialize();
+      }
       
-      // Configure camera for optimal recording
+      // Basic camera configuration
       await _controller!.lockCaptureOrientation(DeviceOrientation.portraitUp);
-      await _controller!.setFocusMode(FocusMode.auto);
-      await _controller!.setExposureMode(ExposureMode.auto);
       
       if (mounted) {
         setState(() {});
@@ -97,7 +128,7 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
 
     _controller = CameraController(
       newCamera,
-      ResolutionPreset.max,
+      ResolutionPreset.medium,  // Use medium resolution for consistency
       enableAudio: true,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
@@ -140,25 +171,31 @@ class _CameraPageState extends State<CameraPage> with TickerProviderStateMixin {
           ),
         );
       } else {
-        // Configure video recording for better quality and stability
+        // Prepare for recording with more conservative settings
         await _controller!.prepareForVideoRecording();
         
-        // Start recording with quality configuration
-        await _controller!.startVideoRecording(
-          onAvailable: (image) {
-            // Skip frames if needed to maintain stability
-            if (DateTime.now().millisecondsSinceEpoch % 2 == 0) {
-              // Process every other frame
-              debugPrint('Frame processed: ${image.width}x${image.height}');
-            }
-          },
-        );
-        
+        // Start recording with basic configuration
+        await _controller!.startVideoRecording();
         setState(() => _isRecording = true);
       }
     } catch (e) {
       setState(() => _errorMessage = 'Failed to ${_isRecording ? "stop" : "start"} recording: $e');
       debugPrint('Recording error: $e');
+      
+      // Try to recover from error
+      if (_isRecording) {
+        setState(() => _isRecording = false);
+        try {
+          await _controller!.stopVideoRecording();
+        } catch (e) {
+          debugPrint('Error stopping recording during recovery: $e');
+        }
+      }
+      
+      // Reinitialize camera if needed
+      if (e.toString().contains('broken pipe')) {
+        _initializeCamera();
+      }
     }
   }
 

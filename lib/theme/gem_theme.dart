@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // Colors from our style guide
 const Color amethyst = Color(0xFF9966CC);
@@ -15,13 +14,14 @@ const Color crystalGlow = Color(0x1FFFFFFF);
 // Measurements
 const double emeraldCut = 12.0;  // Border radius for gem-cut shapes
 
-// Text Styles using Google Fonts
-TextStyle get crystalHeading => GoogleFonts.audiowide(
+// Text Styles using local fonts
+TextStyle get crystalHeading => const TextStyle(
+  fontFamily: 'Audiowide',
   fontSize: 32.0,
   fontWeight: FontWeight.w700,
   letterSpacing: 1.5,
   color: Colors.white,
-  shadows: const [
+  shadows: [
     Shadow(
       color: crystalGlow,
       blurRadius: 10.0,
@@ -29,7 +29,8 @@ TextStyle get crystalHeading => GoogleFonts.audiowide(
   ],
 );
 
-TextStyle get gemText => GoogleFonts.spaceMono(
+TextStyle get gemText => const TextStyle(
+  fontFamily: 'SpaceMono',
   fontSize: 16.0,
   letterSpacing: 0.5,
   height: 1.5,
@@ -99,9 +100,19 @@ ThemeData buildGemTheme() {
       surface: caveShadow,
       background: deepCave,
     ),
-    textTheme: GoogleFonts.spaceMonoTextTheme(baseTheme.textTheme).apply(
-      bodyColor: Colors.white,
-      displayColor: Colors.white,
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(
+        fontFamily: 'SpaceMono',
+        color: Colors.white,
+      ),
+      bodyMedium: TextStyle(
+        fontFamily: 'SpaceMono',
+        color: Colors.white,
+      ),
+      titleLarge: TextStyle(
+        fontFamily: 'Audiowide',
+        color: Colors.white,
+      ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: gemButton,

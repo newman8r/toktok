@@ -33,4 +33,13 @@ flutter:
   
   assets:
     - assets/images/
-    - assets/audio/ 
+    - assets/audio/
+  fonts:
+    - family: Audiowide
+      fonts:
+        - asset: assets/fonts/Audiowide-Regular.ttf
+    - family: SpaceMono
+      fonts:
+        - asset: assets/fonts/SpaceMono-Regular.ttf
+        - asset: assets/fonts/SpaceMono-Bold.ttf
+          weight: 700 
