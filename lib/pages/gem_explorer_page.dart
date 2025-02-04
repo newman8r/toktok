@@ -17,7 +17,7 @@ class GemExplorerPage extends StatefulWidget {
   State<GemExplorerPage> createState() => _GemExplorerPageState();
 }
 
-class _GemExplorerPageState extends State<GemExplorerPage> with SingleTickerProviderStateMixin {
+class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderStateMixin {
   late VideoPlayerController _videoController;
   late AnimationController _shimmerController;
   
@@ -40,26 +40,24 @@ class _GemExplorerPageState extends State<GemExplorerPage> with SingleTickerProv
   
   // Mystical content for exploration
   final List<Map<String, dynamic>> _mysticalContent = [
-    {'type': 'text', 'content': '✧ Whispers of the Crystal Cave ✧'},
-    {'type': 'emoji', 'content': '💎', 'description': 'A rare gem glows with ancient power'},
-    {'type': 'text', 'content': '⋆｡°✩ Ancient runes tell forgotten tales ✩°｡⋆'},
-    {'type': 'emoji', 'content': '🔮', 'description': 'A mystical orb pulses with energy'},
-    {'type': 'text', 'content': '⊹ The echoes of time resonate here ⊹'},
-    {'type': 'emoji', 'content': '✨', 'description': 'Stardust dances in the air'},
-    {'type': 'text', 'content': '⋇ Secrets of the deep await ⋇'},
-    {'type': 'emoji', 'content': '🌟', 'description': 'A celestial light guides the way'},
-    {'type': 'text', 'content': '❈ Crystalline memories shimmer ❈'},
-    {'type': 'emoji', 'content': '🌌', 'description': 'A cosmic portal beckons'},
+    {'type': 'emoji', 'content': '💎'},
+    {'type': 'emoji', 'content': '🔮'},
+    {'type': 'emoji', 'content': '✨'},
+    {'type': 'emoji', 'content': '🌟'},
+    {'type': 'emoji', 'content': '🌌'},
+    {'type': 'emoji', 'content': '💫'},
+    {'type': 'emoji', 'content': '⭐'},
+    {'type': 'emoji', 'content': '🌠'},
   ];
 
   // Navigation directions with their offsets and angles
   final Map<String, Map<String, dynamic>> _directions = {
     'up': {'offset': const Offset(0, -1), 'angle': -math.pi / 2},
     'down': {'offset': const Offset(0, 1), 'angle': math.pi / 2},
-    'topLeft': {'offset': const Offset(-1, -0.5), 'angle': -2 * math.pi / 3},
     'topRight': {'offset': const Offset(1, -0.5), 'angle': -math.pi / 3},
-    'bottomLeft': {'offset': const Offset(-1, 0.5), 'angle': 2 * math.pi / 3},
+    'topLeft': {'offset': const Offset(-1, -0.5), 'angle': -2 * math.pi / 3},
     'bottomRight': {'offset': const Offset(1, 0.5), 'angle': math.pi / 3},
+    'bottomLeft': {'offset': const Offset(-1, 0.5), 'angle': 2 * math.pi / 3},
   };
 
   @override
@@ -110,6 +108,8 @@ class _GemExplorerPageState extends State<GemExplorerPage> with SingleTickerProv
   }
 
   Future<void> _navigate(String direction) async {
+    if (_slideController?.isAnimating ?? false) return;
+    
     HapticFeedback.mediumImpact();
     
     final directionData = _directions[direction]!;
@@ -118,13 +118,13 @@ class _GemExplorerPageState extends State<GemExplorerPage> with SingleTickerProv
     // Create and start slide animation
     _slideController?.dispose();
     _slideController = AnimationController(
-      duration: caveTransition,
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
     _slideAnimation = Tween<Offset>(
       begin: Offset.zero,
-      end: directionData['offset'] as Offset,
+      end: -directionData['offset'] as Offset,
     ).animate(CurvedAnimation(
       parent: _slideController!,
       curve: Curves.easeInOutQuart,
@@ -235,33 +235,10 @@ class _GemExplorerPageState extends State<GemExplorerPage> with SingleTickerProv
             ),
         ],
       );
-    } else if (content['type'] == 'emoji') {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            content['content'],
-            style: const TextStyle(fontSize: 32),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            content['description'],
-            style: gemText.copyWith(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      );
     } else {
       return Text(
         content['content'],
-        style: crystalHeading.copyWith(
-          fontSize: isCenter ? 20 : 16,
-          color: Colors.white.withOpacity(isCenter ? 1 : 0.7),
-        ),
+        style: const TextStyle(fontSize: 32),
         textAlign: TextAlign.center,
       );
     }
@@ -277,18 +254,36 @@ class _GemExplorerPageState extends State<GemExplorerPage> with SingleTickerProv
           children: [
             // Navigation hexagon background
             Positioned.fill(
-              child: CustomPaint(
-                painter: _NavigationHexagonPainter(
-                  progress: _shimmerController.value,
-                  hoveredEdge: _hoveredEdge,
-                  onHoverEdge: (edge) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && _hoveredEdge != edge) {
-                        setState(() => _hoveredEdge = edge);
-                      }
-                    });
-                  },
-                  onTapEdge: _navigate,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  // Convert touch position to angle from center
+                  final size = MediaQuery.of(context).size;
+                  final center = Offset(size.width / 2, size.height / 2);
+                  final touchPosition = details.localPosition;
+                  final angle = (touchPosition - center).direction;
+                  
+                  // Map angle to direction
+                  String? direction;
+                  if (angle > -math.pi/6 && angle <= math.pi/6) direction = 'topRight';
+                  else if (angle > math.pi/6 && angle <= math.pi/2) direction = 'bottomRight';
+                  else if (angle > math.pi/2 && angle <= 5*math.pi/6) direction = 'down';
+                  else if (angle > 5*math.pi/6 || angle <= -5*math.pi/6) direction = 'bottomLeft';
+                  else if (angle > -5*math.pi/6 && angle <= -math.pi/2) direction = 'down';
+                  else if (angle > -math.pi/2 && angle <= -math.pi/6) direction = 'topLeft';
+                  
+                  setState(() => _hoveredEdge = direction);
+                },
+                onPanEnd: (_) {
+                  if (_hoveredEdge != null) {
+                    _navigate(_hoveredEdge!);
+                    _hoveredEdge = null;
+                  }
+                },
+                child: CustomPaint(
+                  painter: _NavigationHexagonPainter(
+                    progress: _shimmerController.value,
+                    hoveredEdge: _hoveredEdge,
+                  ),
                 ),
               ),
             ),
@@ -422,14 +417,10 @@ class _HexagonClipper extends CustomClipper<Path> {
 class _NavigationHexagonPainter extends CustomPainter {
   final double progress;
   final String? hoveredEdge;
-  final Function(String?) onHoverEdge;
-  final Function(String) onTapEdge;
 
   _NavigationHexagonPainter({
     required this.progress,
     required this.hoveredEdge,
-    required this.onHoverEdge,
-    required this.onTapEdge,
   });
 
   @override
@@ -453,7 +444,7 @@ class _NavigationHexagonPainter extends CustomPainter {
     final points = <Offset>[];
     
     for (int i = 0; i < 6; i++) {
-      final angle = i * math.pi / 3;
+      final angle = i * math.pi / 3 - math.pi / 6;
       final point = Offset(
         center.dx + radius * math.cos(angle),
         center.dy + radius * math.sin(angle),
@@ -474,9 +465,12 @@ class _NavigationHexagonPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
-    void drawEdge(int index, String direction) {
-      final start = points[index];
-      final end = points[(index + 1) % 6];
+    final directions = ['up', 'topRight', 'bottomRight', 'down', 'bottomLeft', 'topLeft'];
+    
+    for (int i = 0; i < 6; i++) {
+      final start = points[i];
+      final end = points[(i + 1) % 6];
+      final direction = directions[i];
       
       final isHovered = hoveredEdge == direction;
       edgePaint.shader = LinearGradient(
@@ -489,32 +483,11 @@ class _NavigationHexagonPainter extends CustomPainter {
       ).createShader(Offset.zero & size);
 
       canvas.drawLine(start, end, edgePaint);
-      
-      // Check if current point is being hovered
-      final currentPoint = (start + end) / 2;
-      if (_isPointHovered(currentPoint, center, radius)) {
-        onHoverEdge(direction);
-      }
     }
-
-    drawEdge(0, 'topRight');
-    drawEdge(1, 'right');
-    drawEdge(2, 'bottomRight');
-    drawEdge(3, 'down');
-    drawEdge(4, 'bottomLeft');
-    drawEdge(5, 'left');
-  }
-
-  bool _isPointHovered(Offset point, Offset center, double radius) {
-    const hoverThreshold = 50.0;
-    return (point - center).distance <= radius + hoverThreshold;
   }
 
   @override
   bool shouldRepaint(_NavigationHexagonPainter oldDelegate) {
     return oldDelegate.progress != progress || oldDelegate.hoveredEdge != hoveredEdge;
   }
-
-  @override
-  bool hitTest(Offset position) => true;
 } 
