@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import 'dart:io';
-import 'feed_page.dart';
+import 'gem_explorer_page.dart';
 
 class VideoPreviewPage extends StatefulWidget {
   final XFile videoFile;
@@ -59,12 +59,12 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
     HapticFeedback.mediumImpact();
   }
 
-  void _navigateToFeed() {
+  void _navigateToGemExplorer() {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => 
-          FeedPage(recordedVideos: [File(widget.videoFile.path)]),
+          GemExplorerPage(recordedVideo: File(widget.videoFile.path)),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
@@ -238,7 +238,7 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
               const Spacer(),
               GemButton(
                 text: 'Use Video',
-                onPressed: _navigateToFeed,
+                onPressed: _navigateToGemExplorer,
                 gemColor: emerald,
                 isAnimated: true,
               ),
