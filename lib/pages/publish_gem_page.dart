@@ -5,6 +5,10 @@ import 'dart:ui' as ui;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import 'dart:math' as math;
+import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PublishGemPage extends StatefulWidget {
   final String cloudinaryUrl;
@@ -27,6 +31,10 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
   bool _isInstagramConnected = false;
   String? _shareableLink;
   bool _isPublic = true;
+  bool _isSaving = false;
+  bool _showSuccessParticles = false;
+  late final AnimationController _particleController;
+  final List<_Particle> _particles = [];
 
   @override
   void initState() {
@@ -59,6 +67,18 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
 
     // Generate shareable link (placeholder for now)
     _shareableLink = '${widget.cloudinaryUrl}?player=true';
+
+    _particleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    _particleController.addListener(() {
+      for (var particle in _particles) {
+        particle.update(_particleController.value);
+      }
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -67,7 +87,107 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
     _shimmerController.dispose();
     _crystalGrowthController.dispose();
     _pulseController.dispose();
+    _particleController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveToDevice() async {
+    try {
+      setState(() => _isSaving = true);
+
+      // Request appropriate permissions based on Android version
+      bool hasPermission = false;
+      if (Platform.isAndroid) {
+        if (await Permission.storage.request().isGranted) {
+          hasPermission = true;
+        } else if (await Permission.manageExternalStorage.request().isGranted) {
+          hasPermission = true;
+        }
+      } else {
+        // For iOS, we don't need explicit permission for saving to app's directory
+        hasPermission = true;
+      }
+
+      if (!hasPermission) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Storage permission is required to save the video')),
+        );
+        return;
+      }
+
+      // Get the appropriate directory
+      Directory directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');  // Android Downloads folder
+        if (!await directory.exists()) {
+          // Fallback to app's external storage
+          final appDir = await getExternalStorageDirectory();
+          if (appDir == null) {
+            throw Exception('Could not access storage directory');
+          }
+          directory = appDir;
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();  // iOS Documents directory
+      }
+
+      // Generate unique filename with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filePath = '${directory.path}/TokTok_Gem_$timestamp.mp4';
+
+      // Download and save the video
+      final response = await http.get(Uri.parse(widget.cloudinaryUrl));
+      if (response.statusCode == 200) {
+        final file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+        
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Video saved to ${Platform.isAndroid ? 'Downloads' : 'Documents'} folder'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Trigger success particles
+          setState(() => _showSuccessParticles = true);
+          _particleController.forward(from: 0);
+          HapticFeedback.mediumImpact();
+        }
+      } else {
+        throw Exception('Failed to download video');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save video: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  void _generateParticles() {
+    _particles.clear();
+    final center = Offset(
+      MediaQuery.of(context).size.width / 2,
+      MediaQuery.of(context).size.height / 2,
+    );
+
+    for (var i = 0; i < 50; i++) {
+      _particles.add(_Particle(
+        center: center,
+        angle: math.Random().nextDouble() * 2 * math.pi,
+        speed: math.Random().nextDouble() * 200 + 100,
+        color: [emerald, amethyst, sapphire][math.Random().nextInt(3)],
+      ));
+    }
   }
 
   @override
@@ -218,11 +338,11 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
         _buildShareOption(
           icon: Icons.save_alt,
           title: 'Save to Device',
-          subtitle: 'Keep your gem in your local collection',
-          onTap: () {
-            // TODO: Implement save to device
-            HapticFeedback.mediumImpact();
-          },
+          subtitle: _isSaving 
+            ? 'Saving your gem...'
+            : 'Keep your gem in your local collection',
+          onTap: _isSaving ? null : _saveToDevice,
+          isLoading: _isSaving,
         ),
         const SizedBox(height: 16),
         _buildShareOption(
@@ -245,64 +365,80 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
     required IconData icon,
     required String title,
     required String subtitle,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     bool isConnected = false,
+    bool isLoading = false,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: caveShadow.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(emeraldCut),
-          border: Border.all(
-            color: amethyst.withOpacity(0.3),
-            width: 1,
+      child: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: caveShadow.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(emeraldCut),
+              border: Border.all(
+                color: amethyst.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: deepCave.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(emeraldCut / 2),
+                  ),
+                  child: isLoading
+                    ? const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(emerald),
+                        strokeWidth: 2,
+                      )
+                    : Icon(
+                        icon,
+                        color: isConnected ? emerald : silver,
+                      ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: gemText.copyWith(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: gemText.copyWith(
+                          color: silver,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLoading)
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: silver,
+                    size: 16,
+                  ),
+              ],
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: deepCave.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(emeraldCut / 2),
-              ),
-              child: Icon(
-                icon,
-                color: isConnected ? emerald : silver,
-              ),
+          if (_showSuccessParticles)
+            CustomPaint(
+              painter: _ParticlesPainter(particles: _particles),
+              size: Size.infinite,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: gemText.copyWith(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: gemText.copyWith(
-                      color: silver,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: silver,
-              size: 16,
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -528,29 +664,63 @@ class _CrystalOverlayPainter extends CustomPainter {
   }
 }
 
-class _GemButtonPainter extends CustomPainter {
-  final double progress;
+class _Particle {
+  final Offset center;
+  final double angle;
+  final double speed;
+  final Color color;
+  late Offset position;
+  late double alpha;
 
-  _GemButtonPainter({required this.progress});
+  _Particle({
+    required this.center,
+    required this.angle,
+    required this.speed,
+    required this.color,
+  }) {
+    position = center;
+    alpha = 1.0;
+  }
+
+  void update(double progress) {
+    final distance = speed * progress;
+    position = Offset(
+      center.dx + math.cos(angle) * distance,
+      center.dy + math.sin(angle) * distance,
+    );
+    alpha = 1.0 - progress;
+  }
+}
+
+class _ParticlesPainter extends CustomPainter {
+  final List<_Particle> particles;
+
+  _ParticlesPainter({required this.particles});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          Colors.white.withOpacity(0.0),
-          Colors.white.withOpacity(0.2),
-          Colors.white.withOpacity(0.0),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-        transform: GradientRotation(progress * math.pi),
-      ).createShader(Offset.zero & size);
+    for (var particle in particles) {
+      final paint = Paint()
+        ..color = particle.color.withOpacity(particle.alpha * 0.6)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
 
-    canvas.drawRect(Offset.zero & size, paint);
+      // Draw particle trail
+      final path = Path();
+      path.moveTo(
+        particle.center.dx,
+        particle.center.dy,
+      );
+      path.lineTo(
+        particle.position.dx,
+        particle.position.dy,
+      );
+
+      canvas.drawPath(path, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(_GemButtonPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
+  bool shouldRepaint(_ParticlesPainter oldDelegate) => true;
 } 
