@@ -94,8 +94,6 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
       // Upload video to Cloudinary
       final cloudinaryUrl = await cloudinary.uploadVideo(
         File(widget.videoFile.path),
-        generateThumbnail: true,
-        autoOptimize: true,
       );
 
       if (!mounted) return;

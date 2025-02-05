@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:cloudinary/cloudinary.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class CloudinaryService {
   late final Cloudinary _cloudinary;
+  final _random = Random.secure();
   
   CloudinaryService() {
     _cloudinary = Cloudinary.signedConfig(
@@ -13,18 +15,22 @@ class CloudinaryService {
     );
   }
 
-  Future<String?> uploadVideo(File videoFile, {
-    String? publicId,
-    bool generateThumbnail = true,
-    bool autoOptimize = true,
-  }) async {
+  String _generatePublicId() {
+    // Generate a random 16 character string
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    return List.generate(16, (index) => chars[_random.nextInt(chars.length)]).join();
+  }
+
+  Future<String?> uploadVideo(File videoFile) async {
     try {
+      final publicId = _generatePublicId();
+      
       final response = await _cloudinary.upload(
         file: videoFile.path,
         fileBytes: await videoFile.readAsBytes(),
         resourceType: CloudinaryResourceType.video,
         folder: 'toktok_videos',
-        fileName: publicId,
+        publicId: publicId,
         progressCallback: (count, total) {
           final progress = (count / total) * 100;
           print('Upload progress: ${progress.toStringAsFixed(2)}%');
