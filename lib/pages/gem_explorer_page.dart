@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import '../theme/gem_theme.dart';
+import '../widgets/gem_button.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
@@ -22,6 +23,8 @@ class GemExplorerPage extends StatefulWidget {
 class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderStateMixin {
   late VideoPlayerController _videoController;
   late AnimationController _shimmerController;
+  String? _errorMessage;
+  bool _isPlaying = false;
   
   // Track current position and content
   Offset _currentOffset = Offset.zero;
@@ -71,21 +74,38 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     print('Initializing video from path: ${widget.recordedVideo.path}');
     if (cloudinaryUrl != null) {
       print('Cloudinary URL available: $cloudinaryUrl');
+      _videoController = VideoPlayerController.network(cloudinaryUrl!)
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {
+              print('Video dimensions: ${_videoController.value.size}');
+              print('Video aspect ratio: ${_videoController.value.aspectRatio}');
+              _videoController.play();
+              _videoController.setLooping(true);
+              print('Video initialized and playing');
+            });
+          }
+        }).catchError((error) {
+          print('Error initializing video: $error');
+          setState(() => _errorMessage = 'Failed to load video: $error');
+        });
+    } else {
+      _videoController = VideoPlayerController.file(widget.recordedVideo)
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {
+              print('Video dimensions: ${_videoController.value.size}');
+              print('Video aspect ratio: ${_videoController.value.aspectRatio}');
+              _videoController.play();
+              _videoController.setLooping(true);
+              print('Video initialized and playing');
+            });
+          }
+        }).catchError((error) {
+          print('Error initializing video: $error');
+          setState(() => _errorMessage = 'Failed to load video: $error');
+        });
     }
-    _videoController = VideoPlayerController.file(widget.recordedVideo)
-      ..initialize().then((_) {
-        if (mounted) {
-          setState(() {
-            print('Video dimensions: ${_videoController.value.size}');
-            print('Video aspect ratio: ${_videoController.value.aspectRatio}');
-            _videoController.play();
-            _videoController.setLooping(true);
-            print('Video initialized and playing');
-          });
-        }
-      }).catchError((error) {
-        print('Error initializing video: $error');
-      });
 
     _shimmerController = AnimationController(
       vsync: this,
@@ -227,6 +247,14 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    if (_errorMessage != null) {
+      return _buildErrorScreen();
+    }
+
+    if (!_videoController.value.isInitialized) {
+      return _buildLoadingScreen();
+    }
+
     return Scaffold(
       backgroundColor: deepCave,
       body: SafeArea(
@@ -382,6 +410,61 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       _contentGrid[key] = _mysticalContent[math.Random().nextInt(_mysticalContent.length)];
     }
     return _contentGrid[key]!;
+  }
+
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      backgroundColor: deepCave,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: ruby,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Video Error',
+              style: crystalHeading.copyWith(color: ruby),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              style: gemText.copyWith(color: silver),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GemButton(
+              text: 'Go Back',
+              onPressed: () => Navigator.pop(context),
+              gemColor: emerald,
+              isAnimated: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: deepCave,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Loading video...',
+              style: gemText.copyWith(color: silver),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
