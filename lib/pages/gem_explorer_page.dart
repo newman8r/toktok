@@ -7,10 +7,12 @@ import '../theme/gem_theme.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
+  final String? cloudinaryUrl;  // Optional for now as we transition
 
   const GemExplorerPage({
     super.key,
     required this.recordedVideo,
+    this.cloudinaryUrl,  // Make it optional for backward compatibility
   });
 
   @override
@@ -38,6 +40,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   // Track hover state for navigation edges
   String? _hoveredEdge;
   
+  // Store Cloudinary URL
+  String? get cloudinaryUrl => widget.cloudinaryUrl;
+  
   // Mystical content for exploration
   final List<Map<String, dynamic>> _mysticalContent = [
     {'type': 'emoji', 'content': '💎'},
@@ -64,6 +69,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   void initState() {
     super.initState();
     print('Initializing video from path: ${widget.recordedVideo.path}');
+    if (cloudinaryUrl != null) {
+      print('Cloudinary URL available: $cloudinaryUrl');
+    }
     _videoController = VideoPlayerController.file(widget.recordedVideo)
       ..initialize().then((_) {
         if (mounted) {
@@ -85,7 +93,11 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     )..repeat();
 
     // Initialize content grid with video at center
-    _contentGrid['0,0'] = {'type': 'video', 'content': widget.recordedVideo};
+    _contentGrid['0,0'] = {
+      'type': 'video',
+      'content': widget.recordedVideo,
+      'cloudinaryUrl': cloudinaryUrl,
+    };
     _generateSurroundingContent(const Offset(0, 0));
   }
 
@@ -147,101 +159,70 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
 
   Widget _buildGemTile({required Map<String, dynamic> content, bool isCenter = false}) {
     final size = MediaQuery.of(context).size;
-    final tileSize = size.width * (isCenter ? 0.4 : 0.3);
+    final tileSize = size.width * (isCenter ? 0.3 : 0.25); // Center tile slightly larger
 
     return Container(
       width: tileSize,
       height: tileSize,
-      margin: const EdgeInsets.all(8),
+      margin: EdgeInsets.all(size.width * 0.01),
       decoration: BoxDecoration(
-        color: isCenter ? amethyst.withOpacity(0.3) : caveShadow.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(emeraldCut),
+        borderRadius: BorderRadius.circular(tileSize / 6),
         border: Border.all(
-          color: isCenter ? amethyst.withOpacity(0.5) : Colors.white.withOpacity(0.1),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isCenter ? amethyst.withOpacity(0.2) : Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            if (content['type'] == 'video') {
-              if (_videoController.value.isPlaying) {
-                _videoController.pause();
-              } else {
-                _videoController.play();
-              }
-              setState(() {});
-            }
-          },
-          borderRadius: BorderRadius.circular(emeraldCut),
-          child: ClipPath(
-            clipper: _HexagonClipper(),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: _buildContent(content, isCenter),
-              ),
-            ),
-          ),
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
         ),
       ),
+      clipBehavior: Clip.antiAlias,
+      child: content['type'] == 'video' ? _buildVideoContent(content) : _buildEmojiContent(content),
     );
   }
 
-  Widget _buildContent(Map<String, dynamic> content, bool isCenter) {
-    if (content['type'] == 'video') {
-      return Stack(
-        alignment: Alignment.center,
-        children: [
-          if (_videoController.value.isInitialized) 
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: SizedBox(
-                  width: _videoController.value.size.width,
-                  height: _videoController.value.size.height,
-                  child: VideoPlayer(_videoController),
-                ),
-              ),
-            )
-          else
-            const Center(
-              child: CircularProgressIndicator(
-                color: Colors.white,
+  Widget _buildVideoContent(Map<String, dynamic> content) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (_videoController.value.isInitialized) 
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _videoController.value.size.width,
+                height: _videoController.value.size.height,
+                child: VideoPlayer(_videoController),
               ),
             ),
-          if (!_videoController.value.isPlaying)
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withOpacity(0.5),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: const Icon(
-                Icons.play_arrow,
-                color: Colors.white,
-                size: 32,
-              ),
+          )
+        else
+          const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
             ),
-        ],
-      );
-    } else {
-      return Text(
+          ),
+        if (!_videoController.value.isPlaying)
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withOpacity(0.5),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: const Icon(
+              Icons.play_arrow,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmojiContent(Map<String, dynamic> content) {
+    return Center(
+      child: Text(
         content['content'],
         style: const TextStyle(fontSize: 32),
         textAlign: TextAlign.center,
-      );
-    }
+      ),
+    );
   }
 
   @override
@@ -341,40 +322,57 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     final bottomRight = _contentGrid['${_currentOffset.dx + 1},${_currentOffset.dy + 0.5}'] ?? 
       _generateAndStoreContent(_currentOffset + const Offset(1, 0.5));
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Top row
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildGemTile(content: topLeft),
-              _buildGemTile(content: topRight),
+              // Top row
+              Padding(
+                padding: EdgeInsets.only(bottom: constraints.maxWidth * 0.02),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGemTile(content: topLeft),
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: topRight),
+                  ],
+                ),
+              ),
+              // Middle row (with center tile)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: constraints.maxWidth * 0.02),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGemTile(content: left),
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: centerContent, isCenter: true),
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: right),
+                  ],
+                ),
+              ),
+              // Bottom row
+              Padding(
+                padding: EdgeInsets.only(top: constraints.maxWidth * 0.02),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGemTile(content: bottomLeft),
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: bottomRight),
+                  ],
+                ),
+              ),
             ],
           ),
-          // Middle row (with center tile)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildGemTile(content: left),
-              _buildGemTile(content: centerContent, isCenter: true),
-              _buildGemTile(content: right),
-            ],
-          ),
-          // Bottom row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildGemTile(content: bottomLeft),
-              _buildGemTile(content: bottomRight),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

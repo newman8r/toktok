@@ -97,5 +97,6 @@ app.*.map.json
 *.bak
 
 # Environment files
-.env*
+.env
+.env.*
 !.env.example
