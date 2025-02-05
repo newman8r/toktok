@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/gem_theme.dart';
-import 'pages/landing_page.dart';
+import 'widgets/auth_wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Load environment variables
-  await dotenv.load(
-    fileName: ".env",
-    mergeWith: {
-      'CLOUDINARY_URL': 'cloudinary://649379854359992:gGLJsIerWHldXcOmlvG5tAk55FE@dmckmfjla',
-      'CLOUDINARY_API_KEY': '649379854359992',
-      'CLOUDINARY_API_SECRET': 'gGLJsIerWHldXcOmlvG5tAk55FE',
-      'CLOUDINARY_CLOUD_NAME': 'dmckmfjla',
-    }
-  );
+  await dotenv.load(fileName: ".env");
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    // Disable phone auth and reCAPTCHA verification for testing
+    await FirebaseAuth.instance.setSettings(
+      appVerificationDisabledForTesting: true,
+      phoneNumber: '+11111111111',
+      smsCode: '123456',
+    );
+    
+    print('Firebase initialized successfully');
+  } catch (e) {
+    print('Error initializing Firebase: $e');
+  }
   
   // Set preferred orientations
   SystemChrome.setPreferredOrientations([
@@ -52,7 +58,7 @@ class TokTokApp extends StatelessWidget {
       title: 'TokTok',
       theme: buildGemTheme(),
       debugShowCheckedModeBanner: false,
-      home: const LandingPage(),
+      home: AuthWrapper(),
     );
   }
 } 
