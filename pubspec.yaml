@@ -9,12 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.2
+  cupertino_icons: ^1.0.6
   google_fonts: ^6.1.0
   flutter_animate: ^4.5.0
+  firebase_core: ^2.24.2
   # Temporarily commenting out heavy dependencies
   # rive: ^0.12.4
-  # firebase_core: ^2.24.2
   # firebase_auth: ^4.15.3
   # cloud_firestore: ^4.13.6
   # firebase_storage: ^11.5.6
