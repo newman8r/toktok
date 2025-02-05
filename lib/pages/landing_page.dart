@@ -5,6 +5,7 @@ import '../theme/gem_theme.dart';
 import '../widgets/cave_background.dart';
 import '../widgets/gem_button.dart';
 import 'creator_studio_page.dart';
+import 'auth_page.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -195,7 +196,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
           Navigator.push(
             context,
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const CreatorStudioPage(),
+              pageBuilder: (context, animation, secondaryAnimation) => const AuthPage(),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 const begin = Offset(1.0, 0.0);
                 const end = Offset.zero;

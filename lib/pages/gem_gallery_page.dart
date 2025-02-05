@@ -1,0 +1,594 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
+import '../theme/gem_theme.dart';
+import 'dart:ui' as ui;
+import 'dart:math' as math;
+import '../widgets/gem_button.dart';
+import 'gem_explorer_page.dart';
+import '../services/gem_service.dart';
+import '../services/auth_service.dart';
+import '../models/gem_model.dart';
+import 'dart:io';
+import '../services/cloudinary_service.dart';
+
+class GemGalleryPage extends StatefulWidget {
+  const GemGalleryPage({super.key});
+
+  @override
+  State<GemGalleryPage> createState() => _GemGalleryPageState();
+}
+
+class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStateMixin {
+  late final AnimationController _shimmerController;
+  late final AnimationController _crystalGrowthController;
+  final GemService _gemService = GemService();
+  final AuthService _authService = AuthService();
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  
+  List<GemModel> _userGems = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
+    _crystalGrowthController = AnimationController(
+      vsync: this,
+      duration: crystalGrow,
+    )..forward();
+
+    _loadUserGems();
+  }
+
+  Future<void> _loadUserGems() async {
+    try {
+      print('🔄 Starting to load user gems...');
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final user = _authService.currentUser;
+      print('👤 Current user: ${user?.uid}');
+      
+      if (user == null) throw Exception('User not authenticated');
+
+      final gems = await _gemService.getUserGems(user.uid);
+      print('💎 Loaded ${gems.length} gems from service');
+      
+      if (mounted) {
+        setState(() {
+          _userGems = gems;
+          _isLoading = false;
+        });
+        print('✨ Updated UI with ${_userGems.length} gems');
+      }
+    } catch (e) {
+      print('❌ Error in _loadUserGems: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load gems: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    _crystalGrowthController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: deepCave,
+      body: Stack(
+        children: [
+          // Animated crystal cave background
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _shimmerController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: _CrystalBackgroundPainter(
+                    progress: _shimmerController.value,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Main content
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // Crystal App Bar
+              _buildCrystalAppBar(),
+              
+              // Pull to refresh
+              CupertinoSliverRefreshControl(
+                onRefresh: _loadUserGems,
+                builder: (context, refreshState, pulledExtent, refreshTriggerPullDistance, refreshIndicatorExtent) {
+                  return Center(
+                    child: Container(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: const CircularProgressIndicator(
+                        color: amethyst,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              
+              // Stats Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: _buildStatsSection(),
+                ),
+              ),
+
+              // Gallery Grid or Loading/Error State
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: amethyst,
+                    ),
+                  ),
+                )
+              else if (_error != null)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: ruby,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          style: gemText.copyWith(color: ruby),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        GemButton(
+                          text: 'Try Again',
+                          onPressed: _loadUserGems,
+                          gemColor: emerald,
+                          isAnimated: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_userGems.isEmpty)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.diamond_outlined,
+                          color: silver,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No gems found in your collection yet.\nStart creating to fill your treasure chest!',
+                          style: gemText.copyWith(color: silver),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  sliver: _buildGemGrid(),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCrystalAppBar() {
+    return SliverAppBar(
+      expandedHeight: 200,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: ClipRRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: FlexibleSpaceBar(
+            title: Text(
+              'Gem Collection',
+              style: crystalHeading.copyWith(fontSize: 24),
+            ),
+            background: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    amethyst.withOpacity(0.3),
+                    deepCave.withOpacity(0.9),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: silver),
+        onPressed: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  Widget _buildStatsSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      decoration: BoxDecoration(
+        color: caveShadow.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(emeraldCut),
+        border: Border.all(
+          color: amethyst.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 400;
+          return Column(
+            children: [
+              Text(
+                'Your Gem Collection',
+                style: crystalHeading.copyWith(
+                  fontSize: isNarrow ? 24 : 28,
+                  color: amethyst,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isNarrow ? 16 : 24),
+              Wrap(
+                spacing: isNarrow ? 8 : 16,
+                runSpacing: isNarrow ? 16 : 24,
+                alignment: WrapAlignment.spaceAround,
+                children: [
+                  _buildStatItem(
+                    'Total Gems', 
+                    '${_userGems.length}', 
+                    emerald,
+                    isNarrow: isNarrow,
+                  ),
+                  _buildStatItem(
+                    'Storage Used', 
+                    _formatFileSize(_calculateTotalSize()), 
+                    sapphire,
+                    isNarrow: isNarrow,
+                  ),
+                  _buildStatItem(
+                    'Latest', 
+                    _userGems.isEmpty ? '-' : _formatTimeAgo(
+                      _userGems.first.createdAt
+                    ), 
+                    ruby,
+                    isNarrow: isNarrow,
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  int _calculateTotalSize() {
+    return _userGems.fold(0, (total, gem) => total + gem.bytes);
+  }
+
+  Widget _buildStatItem(String label, String value, Color color, {bool isNarrow = false}) {
+    return Container(
+      width: isNarrow ? 100 : 120,
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isNarrow ? 12 : 16),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Text(
+              value,
+              style: crystalHeading.copyWith(
+                fontSize: isNarrow ? 20 : 24,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: gemText.copyWith(
+              color: silver,
+              fontSize: isNarrow ? 12 : 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGemGrid() {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16.0,
+        crossAxisSpacing: 16.0,
+        childAspectRatio: 0.8,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index < _userGems.length) {
+            return _buildGemCard(_userGems[index]);
+          }
+          return null;
+        },
+        childCount: _userGems.length,
+      ),
+    );
+  }
+
+  Widget _buildGemCard(GemModel gem) {
+    final thumbnailUrl = _cloudinaryService.getThumbnailUrl(gem.cloudinaryUrl);
+    
+    return ScaleTransition(
+      scale: CurvedAnimation(
+        parent: _crystalGrowthController,
+        curve: gemReveal,
+      ),
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => 
+                GemExplorerPage(
+                  recordedVideo: File(''), // TODO: Handle this better
+                  cloudinaryUrl: gem.cloudinaryUrl,
+                ),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeInOutQuart;
+                var tween = Tween(begin: begin, end: end)
+                    .chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+                return SlideTransition(position: offsetAnimation, child: child);
+              },
+              transitionDuration: caveTransition,
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: caveShadow.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(emeraldCut),
+            border: Border.all(
+              color: amethyst.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Video thumbnail
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(emeraldCut),
+                  child: Image.network(
+                    thumbnailUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              sapphire.withOpacity(0.2),
+                              amethyst.withOpacity(0.2),
+                            ],
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.play_circle_outline,
+                          color: silver,
+                          size: 48,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              // Play icon overlay
+              Positioned.fill(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: deepCave.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Info overlay
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(emeraldCut),
+                  ),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            caveShadow.withOpacity(0.5),
+                            deepCave.withOpacity(0.8),
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            gem.title,
+                            style: gemText.copyWith(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time,
+                                color: silver,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatTimeAgo(gem.createdAt),
+                                style: gemText.copyWith(
+                                  color: silver,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const Spacer(),
+                              Icon(
+                                Icons.favorite,
+                                color: gem.likes.isEmpty ? silver : ruby,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${gem.likes.length}',
+                                style: gemText.copyWith(
+                                  color: silver,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    
+    if (difference.inDays > 365) {
+      return '${(difference.inDays / 365).floor()}y ago';
+    } else if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()}mo ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
+}
+
+class _CrystalBackgroundPainter extends CustomPainter {
+  final double progress;
+
+  _CrystalBackgroundPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          amethyst.withOpacity(0.1),
+          sapphire.withOpacity(0.1),
+          ruby.withOpacity(0.1),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+        transform: GradientRotation(progress * 2 * math.pi),
+      ).createShader(Offset.zero & size);
+
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(_CrystalBackgroundPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+} 

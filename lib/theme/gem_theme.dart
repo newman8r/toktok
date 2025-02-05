@@ -1,22 +1,40 @@
 import 'package:flutter/material.dart';
 
-// Colors from our style guide
+// Gem Colors (Primary)
 const Color amethyst = Color(0xFF9966CC);
 const Color emerald = Color(0xFF50C878);
 const Color ruby = Color(0xFFE0115F);
 const Color sapphire = Color(0xFF0F52BA);
+
+// Metallic Accents
 const Color gold = Color(0xFFFFD700);
 const Color silver = Color(0xFFC0C0C0);
+
+// Cave Colors (Background)
 const Color deepCave = Color(0xFF1A1A1A);
 const Color caveShadow = Color(0xFF36454F);
 const Color crystalGlow = Color(0x1FFFFFFF);
 
-// Measurements
-const double emeraldCut = 12.0;  // Border radius for gem-cut shapes
+// Gem Cuts (Border Radius)
+const double hexagonalCut = 0.0;
+const double brilliantCut = 24.0;
+const double emeraldCut = 12.0;
 
-// Text Styles using local fonts
-TextStyle get crystalHeading => const TextStyle(
-  fontFamily: 'Audiowide',
+// Animation Durations
+const Duration crystalGrow = Duration(milliseconds: 400);
+const Duration gemSparkle = Duration(milliseconds: 200);
+const Duration caveTransition = Duration(milliseconds: 600);
+
+// Animation Curves
+const Curve gemReveal = Curves.easeOutBack;
+const Curve crystalForm = Curves.easeInOutQuart;
+
+// Text Styles
+const String displayFont = 'Audiowide';
+const String bodyFont = 'SpaceMono';
+
+const TextStyle crystalHeading = TextStyle(
+  fontFamily: displayFont,
   fontSize: 32.0,
   fontWeight: FontWeight.w700,
   letterSpacing: 1.5,
@@ -29,12 +47,12 @@ TextStyle get crystalHeading => const TextStyle(
   ],
 );
 
-TextStyle get gemText => const TextStyle(
-  fontFamily: 'SpaceMono',
+const TextStyle gemText = TextStyle(
+  fontFamily: bodyFont,
   fontSize: 16.0,
   letterSpacing: 0.5,
   height: 1.5,
-  color: Colors.white,
+  color: silver,
 );
 
 // Button Styles
@@ -58,15 +76,6 @@ final ButtonStyle gemButton = ElevatedButton.styleFrom(
   ),
 );
 
-// Animation Durations
-const Duration crystalGrow = Duration(milliseconds: 400);
-const Duration gemSparkle = Duration(milliseconds: 200);
-const Duration caveTransition = Duration(milliseconds: 600);
-
-// Animation Curves
-const Curve gemReveal = Curves.easeOutBack;
-const Curve crystalForm = Curves.easeInOutQuart;
-
 // Gradients
 const LinearGradient shimmerGradient = LinearGradient(
   colors: [
@@ -88,30 +97,42 @@ final BoxDecoration crystalGlowEffect = BoxDecoration(
   ],
 );
 
-// Theme Data
 ThemeData buildGemTheme() {
-  final baseTheme = ThemeData.dark();
-  return baseTheme.copyWith(
+  return ThemeData(
     scaffoldBackgroundColor: deepCave,
-    primaryColor: amethyst,
-    colorScheme: const ColorScheme.dark().copyWith(
-      primary: amethyst,
-      secondary: ruby,
+    colorScheme: const ColorScheme.dark(
+      primary: emerald,
+      secondary: amethyst,
       surface: caveShadow,
       background: deepCave,
     ),
     textTheme: const TextTheme(
-      bodyLarge: TextStyle(
-        fontFamily: 'SpaceMono',
-        color: Colors.white,
+      displayLarge: crystalHeading,
+      bodyLarge: gemText,
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: caveShadow,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(emeraldCut),
+        borderSide: const BorderSide(
+          color: crystalGlow,
+          width: 1.5,
+        ),
       ),
-      bodyMedium: TextStyle(
-        fontFamily: 'SpaceMono',
-        color: Colors.white,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(emeraldCut),
+        borderSide: BorderSide(
+          color: amethyst.withOpacity(0.5),
+          width: 1.5,
+        ),
       ),
-      titleLarge: TextStyle(
-        fontFamily: 'Audiowide',
-        color: Colors.white,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(emeraldCut),
+        borderSide: const BorderSide(
+          color: amethyst,
+          width: 2.0,
+        ),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(

@@ -66,4 +66,5 @@ class DefaultFirebaseOptions {
     projectId: 'toktok-cf572',
     storageBucket: 'toktok-cf572.firebasestorage.app',
   );
+
 }

@@ -4,6 +4,8 @@ import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import '../theme/gem_theme.dart';
+import '../widgets/gem_button.dart';
+import 'publish_gem_page.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
@@ -22,6 +24,8 @@ class GemExplorerPage extends StatefulWidget {
 class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderStateMixin {
   late VideoPlayerController _videoController;
   late AnimationController _shimmerController;
+  String? _errorMessage;
+  bool _isPlaying = false;
   
   // Track current position and content
   Offset _currentOffset = Offset.zero;
@@ -44,25 +48,25 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   String? get cloudinaryUrl => widget.cloudinaryUrl;
   
   // Mystical content for exploration
-  final List<Map<String, dynamic>> _mysticalContent = [
-    {'type': 'emoji', 'content': '💎'},
-    {'type': 'emoji', 'content': '🔮'},
-    {'type': 'emoji', 'content': '✨'},
-    {'type': 'emoji', 'content': '🌟'},
-    {'type': 'emoji', 'content': '🌌'},
-    {'type': 'emoji', 'content': '💫'},
-    {'type': 'emoji', 'content': '⭐'},
-    {'type': 'emoji', 'content': '🌠'},
+  final List<Map<String, dynamic>> _editOptions = [
+    {'type': 'edit', 'content': '🎨', 'name': 'Style Transfer', 'description': 'Apply artistic styles', 'direction': 'topLeft'},
+    {'type': 'edit', 'content': '✨', 'name': 'Enhance', 'description': 'Improve video quality', 'direction': 'topRight'},
+    {'type': 'edit', 'content': '🎵', 'name': 'Audio', 'description': 'Add or modify audio', 'direction': 'right'},
+    {'type': 'edit', 'content': '⚡', 'name': 'Effects', 'description': 'Add visual effects', 'direction': 'bottomRight'},
+    {'type': 'edit', 'content': '✂️', 'name': 'Trim', 'description': 'Edit video length', 'direction': 'bottomLeft'},
+    {'type': 'edit', 'content': '🔄', 'name': 'Transform', 'description': 'Rotate or flip', 'direction': 'left'},
   ];
 
   // Navigation directions with their offsets and angles
   final Map<String, Map<String, dynamic>> _directions = {
     'up': {'offset': const Offset(0, -1), 'angle': -math.pi / 2},
     'down': {'offset': const Offset(0, 1), 'angle': math.pi / 2},
-    'topRight': {'offset': const Offset(1, -0.5), 'angle': -math.pi / 3},
-    'topLeft': {'offset': const Offset(-1, -0.5), 'angle': -2 * math.pi / 3},
-    'bottomRight': {'offset': const Offset(1, 0.5), 'angle': math.pi / 3},
-    'bottomLeft': {'offset': const Offset(-1, 0.5), 'angle': 2 * math.pi / 3},
+    'right': {'offset': const Offset(1, 0), 'angle': 0},
+    'left': {'offset': const Offset(-1, 0), 'angle': math.pi},
+    'topRight': {'offset': const Offset(1, -0.5), 'angle': -math.pi / 3},     // Content slides down-left
+    'topLeft': {'offset': const Offset(-1, -0.5), 'angle': -2 * math.pi / 3}, // Content slides down-right
+    'bottomRight': {'offset': const Offset(1, 0.5), 'angle': math.pi / 3},    // Content slides up-left
+    'bottomLeft': {'offset': const Offset(-1, 0.5), 'angle': 2 * math.pi / 3},// Content slides up-right
   };
 
   @override
@@ -71,21 +75,38 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     print('Initializing video from path: ${widget.recordedVideo.path}');
     if (cloudinaryUrl != null) {
       print('Cloudinary URL available: $cloudinaryUrl');
+      _videoController = VideoPlayerController.network(cloudinaryUrl!)
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {
+              print('Video dimensions: ${_videoController.value.size}');
+              print('Video aspect ratio: ${_videoController.value.aspectRatio}');
+              _videoController.play();
+              _videoController.setLooping(true);
+              print('Video initialized and playing');
+            });
+          }
+        }).catchError((error) {
+          print('Error initializing video: $error');
+          setState(() => _errorMessage = 'Failed to load video: $error');
+        });
+    } else {
+      _videoController = VideoPlayerController.file(widget.recordedVideo)
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {
+              print('Video dimensions: ${_videoController.value.size}');
+              print('Video aspect ratio: ${_videoController.value.aspectRatio}');
+              _videoController.play();
+              _videoController.setLooping(true);
+              print('Video initialized and playing');
+            });
+          }
+        }).catchError((error) {
+          print('Error initializing video: $error');
+          setState(() => _errorMessage = 'Failed to load video: $error');
+        });
     }
-    _videoController = VideoPlayerController.file(widget.recordedVideo)
-      ..initialize().then((_) {
-        if (mounted) {
-          setState(() {
-            print('Video dimensions: ${_videoController.value.size}');
-            print('Video aspect ratio: ${_videoController.value.aspectRatio}');
-            _videoController.play();
-            _videoController.setLooping(true);
-            print('Video initialized and playing');
-          });
-        }
-      }).catchError((error) {
-        print('Error initializing video: $error');
-      });
 
     _shimmerController = AnimationController(
       vsync: this,
@@ -114,7 +135,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       final offset = center + (data['offset'] as Offset);
       final key = '${offset.dx.toInt()},${offset.dy.toInt()}';
       if (!_contentGrid.containsKey(key)) {
-        _contentGrid[key] = _mysticalContent[math.Random().nextInt(_mysticalContent.length)];
+        _contentGrid[key] = _editOptions[math.Random().nextInt(_editOptions.length)];
       }
     });
   }
@@ -134,9 +155,10 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       vsync: this,
     );
 
+    // Reverse the animation direction to create the feeling of moving towards the clicked direction
     _slideAnimation = Tween<Offset>(
       begin: Offset.zero,
-      end: -directionData['offset'] as Offset,
+      end: directionData['offset'] as Offset, // Removed the negative sign to reverse direction
     ).animate(CurvedAnimation(
       parent: _slideController!,
       curve: Curves.easeInOutQuart,
@@ -159,21 +181,66 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
 
   Widget _buildGemTile({required Map<String, dynamic> content, bool isCenter = false}) {
     final size = MediaQuery.of(context).size;
-    final tileSize = size.width * (isCenter ? 0.3 : 0.25); // Center tile slightly larger
+    final tileSize = size.width * (isCenter ? 0.3 : 0.25);
 
-    return Container(
-      width: tileSize,
-      height: tileSize,
-      margin: EdgeInsets.all(size.width * 0.01),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(tileSize / 6),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
+    if (content['type'] == 'video') {
+      return Container(
+        width: tileSize,
+        height: tileSize,
+        margin: EdgeInsets.all(size.width * 0.01),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(tileSize / 6),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: _buildVideoContent(content),
+      );
+    }
+
+    // Edit option tiles
+    return GestureDetector(
+      onTap: () => _handleEditOption(content),
+      child: Container(
+        width: tileSize,
+        height: tileSize,
+        margin: EdgeInsets.all(size.width * 0.01),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(tileSize / 6),
+          border: Border.all(
+            color: amethyst.withOpacity(0.3),
+            width: 2,
+          ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              deepCave.withOpacity(0.8),
+              caveShadow.withOpacity(0.8),
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              content['content'],
+              style: const TextStyle(fontSize: 24),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              content['name'],
+              style: gemText.copyWith(
+                color: silver,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: content['type'] == 'video' ? _buildVideoContent(content) : _buildEmojiContent(content),
     );
   }
 
@@ -215,60 +282,32 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     );
   }
 
-  Widget _buildEmojiContent(Map<String, dynamic> content) {
-    return Center(
-      child: Text(
-        content['content'],
-        style: const TextStyle(fontSize: 32),
-        textAlign: TextAlign.center,
-      ),
-    );
+  void _handleEditOption(Map<String, dynamic> option) {
+    HapticFeedback.mediumImpact();
+    
+    // Get the direction directly from the option
+    final direction = option['direction'] as String;
+    
+    print('Selected edit option: ${option['name']} (moving ${option['direction']})');
+    _navigate(direction);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_errorMessage != null) {
+      return _buildErrorScreen();
+    }
+
+    if (!_videoController.value.isInitialized) {
+      return _buildLoadingScreen();
+    }
+
     return Scaffold(
       backgroundColor: deepCave,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Navigation hexagon background
-            Positioned.fill(
-              child: GestureDetector(
-                onPanUpdate: (details) {
-                  // Convert touch position to angle from center
-                  final size = MediaQuery.of(context).size;
-                  final center = Offset(size.width / 2, size.height / 2);
-                  final touchPosition = details.localPosition;
-                  final angle = (touchPosition - center).direction;
-                  
-                  // Map angle to direction
-                  String? direction;
-                  if (angle > -math.pi/6 && angle <= math.pi/6) direction = 'topRight';
-                  else if (angle > math.pi/6 && angle <= math.pi/2) direction = 'bottomRight';
-                  else if (angle > math.pi/2 && angle <= 5*math.pi/6) direction = 'down';
-                  else if (angle > 5*math.pi/6 || angle <= -5*math.pi/6) direction = 'bottomLeft';
-                  else if (angle > -5*math.pi/6 && angle <= -math.pi/2) direction = 'down';
-                  else if (angle > -math.pi/2 && angle <= -math.pi/6) direction = 'topLeft';
-                  
-                  setState(() => _hoveredEdge = direction);
-                },
-                onPanEnd: (_) {
-                  if (_hoveredEdge != null) {
-                    _navigate(_hoveredEdge!);
-                    _hoveredEdge = null;
-                  }
-                },
-                child: CustomPaint(
-                  painter: _NavigationHexagonPainter(
-                    progress: _shimmerController.value,
-                    hoveredEdge: _hoveredEdge,
-                  ),
-                ),
-              ),
-            ),
-
             // Main content with animations
             Center(
               child: AnimatedBuilder(
@@ -280,10 +319,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                       slideOffset.dx * MediaQuery.of(context).size.width * 0.5,
                       slideOffset.dy * MediaQuery.of(context).size.height * 0.5,
                     ),
-                    child: _buildHexagonalGrid(
-                      centerContent: _contentGrid['${_currentOffset.dx.toInt()},${_currentOffset.dy.toInt()}'] ?? 
-                        {'type': 'video', 'content': widget.recordedVideo},
-                    ),
+                    child: _buildHexagonalGrid(),
                   );
                 },
               ),
@@ -301,26 +337,50 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                 ),
               ),
             ),
+
+            // Publish button
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 24,
+              child: GemButton(
+                text: '✨ Share Your Gem',
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PublishGemPage(
+                        cloudinaryUrl: cloudinaryUrl!,
+                      ),
+                    ),
+                  );
+                },
+                gemColor: amethyst,
+                isAnimated: true,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHexagonalGrid({required Map<String, dynamic> centerContent}) {
-    // Get surrounding content based on current position
-    final topLeft = _contentGrid['${_currentOffset.dx - 1},${_currentOffset.dy - 0.5}'] ?? 
-      _generateAndStoreContent(_currentOffset + const Offset(-1, -0.5));
-    final topRight = _contentGrid['${_currentOffset.dx + 1},${_currentOffset.dy - 0.5}'] ?? 
-      _generateAndStoreContent(_currentOffset + const Offset(1, -0.5));
-    final left = _contentGrid['${_currentOffset.dx - 1},${_currentOffset.dy}'] ?? 
-      _generateAndStoreContent(_currentOffset + const Offset(-1, 0));
-    final right = _contentGrid['${_currentOffset.dx + 1},${_currentOffset.dy}'] ?? 
-      _generateAndStoreContent(_currentOffset + const Offset(1, 0));
-    final bottomLeft = _contentGrid['${_currentOffset.dx - 1},${_currentOffset.dy + 0.5}'] ?? 
-      _generateAndStoreContent(_currentOffset + const Offset(-1, 0.5));
-    final bottomRight = _contentGrid['${_currentOffset.dx + 1},${_currentOffset.dy + 0.5}'] ?? 
-      _generateAndStoreContent(_currentOffset + const Offset(1, 0.5));
+  Widget _buildHexagonalGrid() {
+    // Get edit options for surrounding tiles in the correct positions
+    final topLeft = _editOptions[0];     // Style Transfer
+    final topRight = _editOptions[1];    // Enhance
+    final right = _editOptions[2];       // Audio
+    final bottomRight = _editOptions[3]; // Effects
+    final bottomLeft = _editOptions[4];  // Trim
+    final left = _editOptions[5];        // Transform
+
+    // Center content is always the video
+    final centerContent = {
+      'type': 'video',
+      'content': widget.recordedVideo,
+      'cloudinaryUrl': cloudinaryUrl,
+    };
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -335,9 +395,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildGemTile(content: topLeft),
+                    _buildGemTile(content: topLeft),    // Style Transfer (top-left)
                     SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: topRight),
+                    _buildGemTile(content: topRight),   // Enhance (top-right)
                   ],
                 ),
               ),
@@ -348,11 +408,11 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildGemTile(content: left),
+                    _buildGemTile(content: left),       // Transform (left)
                     SizedBox(width: constraints.maxWidth * 0.02),
                     _buildGemTile(content: centerContent, isCenter: true),
                     SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: right),
+                    _buildGemTile(content: right),      // Audio (right)
                   ],
                 ),
               ),
@@ -363,9 +423,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildGemTile(content: bottomLeft),
+                    _buildGemTile(content: bottomLeft), // Trim (bottom-left)
                     SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: bottomRight),
+                    _buildGemTile(content: bottomRight),// Effects (bottom-right)
                   ],
                 ),
               ),
@@ -376,12 +436,59 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     );
   }
 
-  Map<String, dynamic> _generateAndStoreContent(Offset position) {
-    final key = '${position.dx},${position.dy}';
-    if (!_contentGrid.containsKey(key)) {
-      _contentGrid[key] = _mysticalContent[math.Random().nextInt(_mysticalContent.length)];
-    }
-    return _contentGrid[key]!;
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      backgroundColor: deepCave,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: ruby,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Video Error',
+              style: crystalHeading.copyWith(color: ruby),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              style: gemText.copyWith(color: silver),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GemButton(
+              text: 'Go Back',
+              onPressed: () => Navigator.pop(context),
+              gemColor: emerald,
+              isAnimated: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: deepCave,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Loading video...',
+              style: gemText.copyWith(color: silver),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

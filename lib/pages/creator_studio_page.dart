@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
+import '../services/auth_service.dart';
 import 'dart:ui' as ui;
 import 'camera_page.dart';
+import 'gem_gallery_page.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -13,6 +15,7 @@ class CreatorStudioPage extends StatefulWidget {
 }
 
 class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProviderStateMixin {
+  final AuthService _authService = AuthService();
   late final TabController _tabController;
   late final AnimationController _shimmerController;
   final _formKey = GlobalKey<FormState>();
@@ -103,6 +106,63 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
       floating: false,
       pinned: true,
       backgroundColor: Colors.transparent,
+      actions: [
+        // Gallery button
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: IconButton(
+            icon: const Icon(Icons.collections, color: silver),
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => 
+                    const GemGalleryPage(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOutQuart;
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+                    return SlideTransition(position: offsetAnimation, child: child);
+                  },
+                  transitionDuration: caveTransition,
+                ),
+              );
+            },
+            tooltip: 'View Gem Collection',
+          ),
+        ),
+        // Logout button
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: IconButton(
+            icon: const Icon(Icons.logout, color: silver),
+            onPressed: () async {
+              try {
+                await _authService.signOut();
+                print('👋 User logged out successfully');
+              } catch (e) {
+                print('❌ Error logging out: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Error logging out: $e',
+                        style: gemText.copyWith(color: Colors.white),
+                      ),
+                      backgroundColor: ruby.withOpacity(0.8),
+                    ),
+                  );
+                }
+              }
+            },
+            tooltip: 'Sign Out',
+          ),
+        ),
+      ],
       flexibleSpace: ClipRRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
