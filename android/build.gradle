@@ -1,12 +1,18 @@
 buildscript {
-    ext.kotlin_version = '1.7.10'
+    ext {
+        kotlin_version = '1.9.0'
+    }
+
+    ext {
+        agp_version = '7.3.0'
+    }
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
+        classpath 'com.android.tools.build:gradle:8.2.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -15,6 +21,23 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+
+    // Add Java compatibility settings
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << '-Xlint:none'
+        options.compilerArgs.remove('-Werror')
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+// Configure Java toolchain
+allprojects {
+    tasks.withType(JavaCompile).configureEach {
+        javaCompiler = javaToolchains.compilerFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
     }
 }
 
