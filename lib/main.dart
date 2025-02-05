@@ -19,16 +19,20 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Disable phone auth and reCAPTCHA verification for testing
+    // Configure Firebase Auth settings
     await FirebaseAuth.instance.setSettings(
       appVerificationDisabledForTesting: true,
-      phoneNumber: '+11111111111',
-      smsCode: '123456',
+      forceRecaptchaFlow: false,
     );
     
-    print('Firebase initialized successfully');
+    print('✅ Firebase initialized successfully');
   } catch (e) {
-    print('Error initializing Firebase: $e');
+    print('❌ Error initializing Firebase: $e');
+    // Add more detailed error information
+    if (e is FirebaseException) {
+      print('Firebase Error Code: ${e.code}');
+      print('Firebase Error Message: ${e.message}');
+    }
   }
   
   // Set preferred orientations

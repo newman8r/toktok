@@ -85,6 +85,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
 
+      print('📧 Starting account creation...');
+      
       // Create the user
       final result = await _authService.registerWithEmailAndPassword(
         email,
@@ -95,6 +97,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         throw Exception('Failed to create your account. Please try again.');
       }
       
+      print('🔥 Firebase Auth account created');
+      
       // Create user profile in Firestore
       final user = UserModel(
         uid: result.user!.uid,
@@ -104,7 +108,23 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       );
       
       await _userService.createUser(user);
+      print('💾 User profile saved to Firestore');
+      
+      // Success feedback
       HapticFeedback.mediumImpact();
+      print('✅ Account created and user profile saved successfully!');
+      
+      // Clear form
+      if (mounted) {
+        _emailController.clear();
+        _passwordController.clear();
+        _usernameController.clear();
+      }
+
+      // Note: No need to navigate manually - AuthWrapper will handle it
+      // Just wait a moment for Firebase Auth state to update
+      await Future.delayed(const Duration(milliseconds: 500));
+      
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -113,6 +133,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         }
       });
       HapticFeedback.heavyImpact();
+      print('❌ Error during registration: $_errorMessage');
     } finally {
       if (mounted) {
         setState(() {

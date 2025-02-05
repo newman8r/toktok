@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
-import '../pages/landing_page.dart';
+import '../pages/creator_studio_page.dart';
 import '../pages/auth_page.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -19,10 +19,12 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
+          print('🎯 User authenticated, navigating to CreatorStudioPage');
           // User is signed in
-          return const LandingPage();
+          return const CreatorStudioPage();
         }
 
+        print('🔒 No user found, showing AuthPage');
         // User is not signed in
         return const AuthPage();
       },

@@ -26,21 +26,41 @@ class AuthService {
         email: email,
         password: password,
       );
-    } catch (e) {
-      print('Error signing in with email and password: $e');
-      rethrow;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        throw 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        throw 'Wrong password provided.';
+      } else {
+        throw e.message ?? 'An error occurred while signing in.';
+      }
     }
   }
 
   // Register with email and password
   Future<UserCredential?> registerWithEmailAndPassword(String email, String password) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(
+      print('📧 Attempting to create account with email: $email');
+      final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      print('✅ Account created successfully for user: ${credential.user?.uid}');
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      print('❌ Firebase Auth Error: ${e.code}');
+      print('Message: ${e.message}');
+      if (e.code == 'weak-password') {
+        throw 'The password provided is too weak.';
+      } else if (e.code == 'email-already-in-use') {
+        throw 'An account already exists for that email.';
+      } else if (e.code == 'invalid-email') {
+        throw 'The email address is not valid.';
+      } else {
+        throw e.message ?? 'An error occurred while creating your account.';
+      }
     } catch (e) {
-      print('Error registering with email and password: $e');
+      print('❌ Unexpected error during registration: $e');
       rethrow;
     }
   }
