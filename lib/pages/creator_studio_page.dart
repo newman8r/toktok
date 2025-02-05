@@ -5,6 +5,7 @@ import '../widgets/gem_button.dart';
 import '../services/auth_service.dart';
 import 'dart:ui' as ui;
 import 'camera_page.dart';
+import 'gem_gallery_page.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -106,6 +107,34 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
       pinned: true,
       backgroundColor: Colors.transparent,
       actions: [
+        // Gallery button
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: IconButton(
+            icon: const Icon(Icons.collections, color: silver),
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => 
+                    const GemGalleryPage(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOutQuart;
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+                    return SlideTransition(position: offsetAnimation, child: child);
+                  },
+                  transitionDuration: caveTransition,
+                ),
+              );
+            },
+            tooltip: 'View Gem Collection',
+          ),
+        ),
         // Logout button
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
@@ -130,6 +159,7 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
                 }
               }
             },
+            tooltip: 'Sign Out',
           ),
         ),
       ],

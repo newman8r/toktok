@@ -8,6 +8,9 @@ import '../widgets/gem_button.dart';
 import 'dart:io';
 import 'gem_explorer_page.dart';
 import '../services/cloudinary_service.dart';
+import '../services/gem_service.dart';
+import '../services/auth_service.dart';
+import 'gem_gallery_page.dart';
 
 class VideoPreviewPage extends StatefulWidget {
   final XFile videoFile;
@@ -26,6 +29,13 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
   late AnimationController _shimmerController;
   bool _isPlaying = false;
   String? _errorMessage;
+  
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  
+  final GemService _gemService = GemService();
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -61,6 +71,11 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
   }
 
   void _navigateToGemExplorer() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      HapticFeedback.heavyImpact();
+      return;
+    }
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -88,6 +103,10 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
     );
 
     try {
+      // Get current user
+      final user = _authService.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
       // Initialize Cloudinary service
       final cloudinary = CloudinaryService();
       
@@ -98,21 +117,29 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
 
       if (!mounted) return;
       
-      // Close loading dialog
-      Navigator.pop(context);
-
       if (cloudinaryUrl != null) {
-        // Navigate to GemExplorer with both local file and Cloudinary URL
-        Navigator.pushReplacement(
-          context,
+        // Create gem in Firestore
+        final gem = await _gemService.createGem(
+          userId: user.uid,
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          cloudinaryUrl: cloudinaryUrl,
+          cloudinaryPublicId: cloudinaryUrl.split('/').last.split('.').first,
+          bytes: await File(widget.videoFile.path).length(),
+        );
+
+        if (!mounted) return;
+        
+        // Close loading dialog
+        Navigator.pop(context);
+
+        // Navigate back to GemGallery
+        Navigator.of(context).pushAndRemoveUntil(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => 
-              GemExplorerPage(
-                recordedVideo: File(widget.videoFile.path),
-                cloudinaryUrl: cloudinaryUrl,
-              ),
+              const GemGalleryPage(),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              const begin = Offset(1.0, 0.0);
+              const begin = Offset(-1.0, 0.0);
               const end = Offset.zero;
               const curve = Curves.easeInOutQuart;
               var tween = Tween(begin: begin, end: end)
@@ -122,19 +149,10 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
             },
             transitionDuration: caveTransition,
           ),
+          (route) => false,  // Remove all previous routes
         );
       } else {
-        // Show error if upload failed
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to process video. Please try again.',
-              style: gemText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: ruby.withOpacity(0.8),
-          ),
-        );
+        throw Exception('Failed to upload video to Cloudinary');
       }
     } catch (e) {
       // Close loading dialog
@@ -156,6 +174,8 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
 
   @override
   void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
     _controller.dispose();
     _shimmerController.dispose();
     super.dispose();
@@ -202,19 +222,97 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
             ),
           ),
 
-          // Controls
+          // Form overlay
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _buildControls(),
+            child: ClipRRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  color: caveShadow.withOpacity(0.5),
+                  padding: const EdgeInsets.all(24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: _titleController,
+                          style: gemText.copyWith(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Title',
+                            labelStyle: gemText.copyWith(color: silver),
+                            filled: true,
+                            fillColor: deepCave.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(emeraldCut),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a title';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController,
+                          style: gemText.copyWith(color: Colors.white),
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'Description',
+                            labelStyle: gemText.copyWith(color: silver),
+                            filled: true,
+                            fillColor: deepCave.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(emeraldCut),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a description';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GemButton(
+                                text: 'Cancel',
+                                onPressed: () => Navigator.pop(context),
+                                gemColor: ruby,
+                                style: GemButtonStyle.secondary,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: GemButton(
+                                text: 'Share Gem',
+                                onPressed: _navigateToGemExplorer,
+                                gemColor: emerald,
+                                isAnimated: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
 
-          // Top Bar
+          // Controls
           Positioned(
-            top: 0,
             left: 0,
             right: 0,
+            top: MediaQuery.of(context).padding.top,
             child: _buildTopBar(),
           ),
         ],
@@ -311,174 +409,11 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
                 style: crystalHeading.copyWith(fontSize: 24),
               ),
               const Spacer(),
-              GemButton(
-                text: 'Use Video',
-                onPressed: _navigateToGemExplorer,
-                gemColor: emerald,
-                isAnimated: true,
-              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  Widget _buildControls() {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          color: caveShadow.withOpacity(0.3),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 32,
-            vertical: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Progress bar
-              _buildProgressBar(),
-              const SizedBox(height: 24),
-              // Control buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildControlButton(
-                    icon: Icons.replay_10,
-                    color: sapphire,
-                    onPressed: () {
-                      final newPosition = _controller.value.position - 
-                          const Duration(seconds: 10);
-                      _controller.seekTo(newPosition);
-                      HapticFeedback.mediumImpact();
-                    },
-                  ),
-                  _buildPlayButton(),
-                  _buildControlButton(
-                    icon: Icons.forward_10,
-                    color: sapphire,
-                    onPressed: () {
-                      final newPosition = _controller.value.position + 
-                          const Duration(seconds: 10);
-                      _controller.seekTo(newPosition);
-                      HapticFeedback.mediumImpact();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressBar() {
-    return ValueListenableBuilder(
-      valueListenable: _controller,
-      builder: (context, VideoPlayerValue value, child) {
-        return Column(
-          children: [
-            SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 4,
-                activeTrackColor: amethyst,
-                inactiveTrackColor: amethyst.withOpacity(0.3),
-                thumbColor: amethyst,
-                overlayColor: amethyst.withOpacity(0.2),
-              ),
-              child: Slider(
-                value: value.position.inMilliseconds.toDouble(),
-                min: 0,
-                max: value.duration.inMilliseconds.toDouble(),
-                onChanged: (position) {
-                  _controller.seekTo(Duration(
-                    milliseconds: position.toInt(),
-                  ));
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _formatDuration(value.position),
-                    style: gemText.copyWith(
-                      color: silver,
-                      fontSize: 12,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(value.duration),
-                    style: gemText.copyWith(
-                      color: silver,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: color.withOpacity(0.5),
-          width: 2,
-        ),
-      ),
-      child: IconButton(
-        icon: Icon(icon),
-        color: color,
-        onPressed: onPressed,
-      ),
-    );
-  }
-
-  Widget _buildPlayButton() {
-    return GestureDetector(
-      onTap: _togglePlayback,
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: emerald.withOpacity(0.3),
-          border: Border.all(
-            color: emerald.withOpacity(0.7),
-            width: 4,
-          ),
-        ),
-        child: Center(
-          child: Icon(
-            _isPlaying ? Icons.pause : Icons.play_arrow,
-            color: emerald,
-            size: 40,
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '\$minutes:\$seconds';
   }
 }
 
