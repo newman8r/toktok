@@ -7,6 +7,7 @@ import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import 'dart:io';
 import 'gem_explorer_page.dart';
+import '../services/cloudinary_service.dart';
 
 class VideoPreviewPage extends StatefulWidget {
   final XFile videoFile;
@@ -59,24 +60,100 @@ class _VideoPreviewPageState extends State<VideoPreviewPage> with TickerProvider
     HapticFeedback.mediumImpact();
   }
 
-  void _navigateToGemExplorer() {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => 
-          GemExplorerPage(recordedVideo: File(widget.videoFile.path)),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOutQuart;
-          var tween = Tween(begin: begin, end: end)
-              .chain(CurveTween(curve: curve));
-          var offsetAnimation = animation.drive(tween);
-          return SlideTransition(position: offsetAnimation, child: child);
-        },
-        transitionDuration: caveTransition,
+  void _navigateToGemExplorer() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: deepCave.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: emerald),
+              const SizedBox(height: 16),
+              Text(
+                'Processing video...',
+                style: gemText.copyWith(color: silver),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+
+    try {
+      // Initialize Cloudinary service
+      final cloudinary = CloudinaryService();
+      
+      // Upload video to Cloudinary
+      final cloudinaryUrl = await cloudinary.uploadVideo(
+        File(widget.videoFile.path),
+        generateThumbnail: true,
+        autoOptimize: true,
+      );
+
+      if (!mounted) return;
+      
+      // Close loading dialog
+      Navigator.pop(context);
+
+      if (cloudinaryUrl != null) {
+        // Navigate to GemExplorer with both local file and Cloudinary URL
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              GemExplorerPage(
+                recordedVideo: File(widget.videoFile.path),
+                cloudinaryUrl: cloudinaryUrl,
+              ),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: caveTransition,
+          ),
+        );
+      } else {
+        // Show error if upload failed
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to process video. Please try again.',
+              style: gemText.copyWith(color: Colors.white),
+            ),
+            backgroundColor: ruby.withOpacity(0.8),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (!mounted) return;
+      Navigator.pop(context);
+      
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error processing video: $e',
+            style: gemText.copyWith(color: Colors.white),
+          ),
+          backgroundColor: ruby.withOpacity(0.8),
+        ),
+      );
+    }
   }
 
   @override

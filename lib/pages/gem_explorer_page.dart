@@ -7,10 +7,12 @@ import '../theme/gem_theme.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
+  final String? cloudinaryUrl;  // Optional for now as we transition
 
   const GemExplorerPage({
     super.key,
     required this.recordedVideo,
+    this.cloudinaryUrl,  // Make it optional for backward compatibility
   });
 
   @override
@@ -38,6 +40,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   // Track hover state for navigation edges
   String? _hoveredEdge;
   
+  // Store Cloudinary URL
+  String? get cloudinaryUrl => widget.cloudinaryUrl;
+  
   // Mystical content for exploration
   final List<Map<String, dynamic>> _mysticalContent = [
     {'type': 'emoji', 'content': '💎'},
@@ -64,6 +69,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   void initState() {
     super.initState();
     print('Initializing video from path: ${widget.recordedVideo.path}');
+    if (cloudinaryUrl != null) {
+      print('Cloudinary URL available: $cloudinaryUrl');
+    }
     _videoController = VideoPlayerController.file(widget.recordedVideo)
       ..initialize().then((_) {
         if (mounted) {
@@ -85,7 +93,11 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     )..repeat();
 
     // Initialize content grid with video at center
-    _contentGrid['0,0'] = {'type': 'video', 'content': widget.recordedVideo};
+    _contentGrid['0,0'] = {
+      'type': 'video',
+      'content': widget.recordedVideo,
+      'cloudinaryUrl': cloudinaryUrl,
+    };
     _generateSurroundingContent(const Offset(0, 0));
   }
 
