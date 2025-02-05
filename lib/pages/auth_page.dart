@@ -143,41 +143,6 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _continueAsGuest() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final result = await _authService.signInAnonymously();
-      if (result == null) {
-        throw Exception('Failed to enter as a wanderer. Please try again.');
-      }
-      
-      // Create anonymous user profile
-      final user = UserModel(
-        uid: result.user!.uid,
-        displayName: 'Wanderer_${result.user!.uid.substring(0, 6)}',
-        createdAt: DateTime.now(),
-      );
-      
-      await _userService.createUser(user);
-      HapticFeedback.mediumImpact();
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Unable to grant wanderer access. Please try again later.';
-      });
-      HapticFeedback.heavyImpact();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -249,7 +214,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Create Your Mining Account',
+                              'Create Your Account',
                               style: gemText.copyWith(
                                 color: silver,
                                 fontSize: 16,
@@ -260,13 +225,13 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                             
                             _buildCrystalInput(
                               controller: _usernameController,
-                              label: 'Choose Your Miner Name',
+                              label: 'Choose Username',
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter a miner name';
+                                  return 'Please enter a username';
                                 }
                                 if (value.length < 3) {
-                                  return 'Name must be at least 3 characters';
+                                  return 'Username must be at least 3 characters';
                                 }
                                 return null;
                               },
@@ -275,7 +240,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                             
                             _buildCrystalInput(
                               controller: _emailController,
-                              label: 'Mining License (Email)',
+                              label: 'Email',
                               keyboardType: TextInputType.emailAddress,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -291,14 +256,14 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                             
                             _buildCrystalInput(
                               controller: _passwordController,
-                              label: 'Secret Code',
+                              label: 'Choose Password',
                               obscureText: true,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your secret code';
+                                  return 'Please enter a password';
                                 }
                                 if (value.length < 6) {
-                                  return 'Code must be at least 6 characters';
+                                  return 'Password must be at least 6 characters';
                                 }
                                 return null;
                               },
@@ -341,21 +306,6 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                                   onPressed: _handleSubmit,
                                   text: 'Create Account',
                                   gemColor: emerald,
-                                  isAnimated: true,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              
-                              ScaleTransition(
-                                scale: CurvedAnimation(
-                                  parent: _crystalGrowthController,
-                                  curve: Curves.easeOutBack,
-                                ),
-                                child: GemButton(
-                                  onPressed: _continueAsGuest,
-                                  text: 'Explore as Wanderer',
-                                  gemColor: sapphire,
-                                  style: GemButtonStyle.secondary,
                                   isAnimated: true,
                                 ),
                               ),
