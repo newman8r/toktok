@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
+import 'publish_gem_page.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
@@ -334,6 +335,29 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 12,
                 ),
+              ),
+            ),
+
+            // Publish button
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 24,
+              child: GemButton(
+                text: '✨ Share Your Gem',
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PublishGemPage(
+                        cloudinaryUrl: cloudinaryUrl!,
+                      ),
+                    ),
+                  );
+                },
+                gemColor: amethyst,
+                isAnimated: true,
               ),
             ),
           ],
