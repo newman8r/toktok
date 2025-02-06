@@ -5,6 +5,7 @@ import '../services/user_service.dart';
 import '../models/user_model.dart';
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
+import 'login_page.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -308,6 +309,49 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                                   gemColor: emerald,
                                   isAnimated: true,
                                 ),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Already have an account? ',
+                                    style: gemText.copyWith(
+                                      color: silver.withOpacity(0.7),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      HapticFeedback.lightImpact();
+                                      Navigator.push(
+                                        context,
+                                        PageRouteBuilder(
+                                          pageBuilder: (context, animation, secondaryAnimation) => 
+                                            const LoginPage(),
+                                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                            const begin = Offset(1.0, 0.0);
+                                            const end = Offset.zero;
+                                            const curve = Curves.easeInOutQuart;
+                                            var tween = Tween(begin: begin, end: end)
+                                                .chain(CurveTween(curve: curve));
+                                            var offsetAnimation = animation.drive(tween);
+                                            return SlideTransition(position: offsetAnimation, child: child);
+                                          },
+                                          transitionDuration: caveTransition,
+                                        ),
+                                      );
+                                    },
+                                    child: Text(
+                                      'Log In',
+                                      style: gemText.copyWith(
+                                        color: amethyst,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ],
