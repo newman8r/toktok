@@ -1,3 +1,16 @@
+/*
+ * VideoCropPage: Precision video trimming interface
+ * 
+ * Provides advanced video editing capabilities:
+ * - Frame-accurate trimming with preview
+ * - Custom crystal lens UI for trim handles
+ * - Real-time preview of trimmed content
+ * - Progress tracking for processing
+ * 
+ * Uses custom painting for the unique crystal-themed
+ * trimming interface while ensuring precise control.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_editor/video_editor.dart';

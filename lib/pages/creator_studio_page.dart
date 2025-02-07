@@ -1,3 +1,17 @@
+/*
+ * CreatorStudioPage: Main creation and management hub
+ * 
+ * Serves as the central dashboard for content creation with:
+ * - Video recording and file upload options
+ * - Collection statistics and insights
+ * - Quick access to gallery and editing tools
+ * - Animated crystal-themed backgrounds
+ * 
+ * This page acts as the main navigation hub, providing a welcoming
+ * and inspiring space for content creators while maintaining the
+ * app's crystal cave aesthetic.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/gem_theme.dart';

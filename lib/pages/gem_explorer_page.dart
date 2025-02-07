@@ -1,3 +1,18 @@
+/*
+ * GemExplorerPage: Interactive video editing and exploration interface
+ * 
+ * Implements a unique spatial navigation system where editing options are
+ * arranged in a hexagonal grid around the central video. Features include:
+ * - Smooth spatial transitions between editing modes
+ * - Crystal-themed UI with dynamic animations
+ * - Video trimming and enhancement tools
+ * - Metadata editing capabilities
+ * - Intuitive gesture-based navigation
+ * 
+ * The hexagonal layout creates an immersive "crystal cave" feeling while
+ * providing easy access to various editing tools and options.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';

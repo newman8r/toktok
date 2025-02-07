@@ -1,3 +1,16 @@
+/*
+ * GemMetaEditPage: Video metadata editing interface
+ * 
+ * Provides a clean, focused interface for editing video details:
+ * - Title and description editing
+ * - Tag management with real-time validation
+ * - Change tracking for save button state
+ * - Smooth animations and haptic feedback
+ * 
+ * Uses a glass-morphic design language consistent with the app's
+ * crystal theme while maintaining a clear, task-focused layout.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/gem_theme.dart';

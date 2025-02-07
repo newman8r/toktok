@@ -1,3 +1,17 @@
+/*
+ * GemGalleryPage: Main collection view for user's video content
+ * 
+ * This page implements a responsive grid layout of user's video gems with:
+ * - Real-time search and filtering by title, description, and tags
+ * - Crystal-themed UI with smooth animations and transitions
+ * - Pull-to-refresh and lazy loading for performance
+ * - Interactive tag system with suggestions
+ * - Usage statistics and collection insights
+ * 
+ * The UI is designed to feel like browsing a collection of precious gems,
+ * with each video card having glass-morphic effects and smooth animations.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';

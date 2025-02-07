@@ -1,3 +1,16 @@
+/*
+ * PublishGemPage: Video publishing and sharing interface
+ * 
+ * Handles the final steps of content publishing with:
+ * - Privacy settings configuration
+ * - Platform-specific sharing options
+ * - Upload progress visualization
+ * - Success/error state handling
+ * 
+ * Implements a streamlined publishing flow while maintaining
+ * the crystal theme through animations and visual effects.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';

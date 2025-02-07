@@ -1,3 +1,16 @@
+/*
+ * CameraPage: Video recording interface with real-time effects
+ * 
+ * Provides a professional camera experience with:
+ * - Real-time filters and effects
+ * - Camera controls with haptic feedback
+ * - Recording timer and status indicators
+ * - Smooth transitions to editing flow
+ * 
+ * Uses native camera APIs for optimal performance while maintaining
+ * the app's crystal aesthetic in UI elements.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
