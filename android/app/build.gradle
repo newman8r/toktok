@@ -46,7 +46,7 @@ android {
 
     defaultConfig {
         applicationId "com.tok.tok"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

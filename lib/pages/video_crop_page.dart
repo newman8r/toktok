@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui' as ui;
-import 'dart:math' as math;
-import '../widgets/crystal_lens_cropper.dart';
-import '../services/cloudinary_service.dart';
+import 'package:video_editor/video_editor.dart';
+import 'package:video_player/video_player.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
+import 'dart:io';
 import '../theme/gem_theme.dart';
+import '../widgets/gem_button.dart';
+import '../services/cloudinary_service.dart';
+import '../services/auth_service.dart';
+import '../services/gem_service.dart';
+import '../pages/gem_gallery_page.dart';
 
 class VideoCropPage extends StatefulWidget {
   final String videoUrl;
@@ -20,145 +28,347 @@ class VideoCropPage extends StatefulWidget {
   _VideoCropPageState createState() => _VideoCropPageState();
 }
 
-class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProviderStateMixin {
-  late AnimationController _backgroundController;
-  bool _isCropping = false;
-  final CloudinaryService _cloudinaryService = CloudinaryService();
-  final GlobalKey<CrystalLensCropperState> _cropperKey = GlobalKey<CrystalLensCropperState>();
-
-  // Crystal theme colors
-  static const Color deepCave = Color(0xFF1A1A1A);
-  static const Color amethyst = Color(0xFF9966CC);
-  static const Color emerald = Color(0xFF50C878);
+class _VideoCropPageState extends State<VideoCropPage> {
+  late VideoEditorController _controller;
+  bool _isExporting = false;
+  String _exportText = '';
+  final _authService = AuthService();
+  final _gemService = GemService();
 
   @override
   void initState() {
     super.initState();
-    _backgroundController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    // Enable haptic feedback for the mystical experience
-    HapticFeedback.mediumImpact();
+    _initializeEditor();
   }
 
-  Future<void> _handleCrop(ui.Rect cropRect, ui.Size videoSize) async {
-    setState(() => _isCropping = true);
-    HapticFeedback.mediumImpact();
+  Future<void> _initializeEditor() async {
+    print('Starting video editor initialization...');
+    // Download video file from URL first
+    final tempDir = await getTemporaryDirectory();
+    final tempPath = '${tempDir.path}/temp_video.mp4';
+    print('Temp video path: $tempPath');
+    
+    final videoFile = File(tempPath);
+    if (!await videoFile.exists()) {
+      print('Downloading video from URL: ${widget.videoUrl}');
+      final response = await http.get(Uri.parse(widget.videoUrl));
+      await videoFile.writeAsBytes(response.bodyBytes);
+      print('Video downloaded successfully');
+    } else {
+      print('Using existing video file');
+    }
+
+    print('Creating VideoEditorController...');
+    _controller = VideoEditorController.file(
+      videoFile,
+      minDuration: const Duration(seconds: 1),
+      maxDuration: const Duration(minutes: 10),
+    );
+    
+    try {
+      print('Initializing controller...');
+      await _controller.initialize();
+      print('Controller initialized successfully');
+      setState(() {});
+    } catch (e, stackTrace) {
+      print('Error initializing video editor: $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _exportVideo() async {
+    setState(() {
+      _isExporting = true;
+      _exportText = 'Crystallizing your creation...';
+    });
 
     try {
-      final String croppedVideoUrl = await _cloudinaryService.cropVideo(
-        videoUrl: widget.videoUrl,
-        cropRect: cropRect,
-        originalSize: videoSize,
-      );
+      print('Starting video export...');
+      
+      // Get the crop rect and rotation from the controller
+      final minCrop = _controller.minCrop;
+      final maxCrop = _controller.maxCrop;
+      final rotation = _controller.rotation;
+      
+      // Get trim values using the correct properties
+      final startTrim = _controller.minTrim;
+      final endTrim = _controller.maxTrim;
+      
+      print('Crop points: $minCrop - $maxCrop');
+      print('Rotation: $rotation');
+      print('Trim points: $startTrim - $endTrim');
 
-      // Success haptic feedback
-      HapticFeedback.heavyImpact();
+      // Initialize Cloudinary service
+      final cloudinaryService = CloudinaryService();
       
-      // Call the completion handler with the new URL
-      widget.onCropComplete(croppedVideoUrl);
+      // Create transformation string for Cloudinary
+      final List<String> transformations = [];
       
-      // Close the crop view
-      if (mounted) {
-        Navigator.of(context).pop();
+      // Add crop transformation if needed
+      if (minCrop != const Offset(0, 0) || maxCrop != const Offset(1, 1)) {
+        final videoWidth = _controller.video.value.size.width;
+        final videoHeight = _controller.video.value.size.height;
+        
+        final x = (minCrop.dx * videoWidth).round();
+        final y = (minCrop.dy * videoHeight).round();
+        final width = ((maxCrop.dx - minCrop.dx) * videoWidth).round();
+        final height = ((maxCrop.dy - minCrop.dy) * videoHeight).round();
+        
+        transformations.add('c_crop,w_$width,h_$height,x_$x,y_$y');
       }
-    } catch (e) {
-      // Error haptic feedback
-      HapticFeedback.vibrate();
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to crop video: $e',
-              style: gemText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: ruby.withOpacity(0.8),
-          ),
+      // Add rotation if needed
+      if (rotation != 0) {
+        transformations.add('a_$rotation');
+      }
+      
+      // Add trim if needed (convert from percentage to milliseconds)
+      if (startTrim > 0 || endTrim < 1) {
+        final videoDurationMs = _controller.video.value.duration.inMilliseconds;
+        final startMs = (startTrim * videoDurationMs).round();
+        final durationMs = ((endTrim - startTrim) * videoDurationMs).round();
+        transformations.add('so_$startMs,du_$durationMs');
+      }
+      
+      // Create timestamp and parameters for signature
+      final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final publicId = 'gem_${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Parameters to sign (in alphabetical order)
+      final Map<String, String> paramsToSign = {
+        'folder': 'toktok_videos',
+        'public_id': publicId,
+        'timestamp': timestamp.toString(),
+      };
+      
+      if (transformations.isNotEmpty) {
+        paramsToSign['transformation'] = transformations.join('/');
+      }
+      
+      print('Uploading to Cloudinary with transformations: ${transformations.join('/')}');
+      
+      // Upload the video with transformations
+      final cloudinaryUrl = await cloudinaryService.uploadVideo(
+        File(_controller.file.path),
+        publicId: publicId,
+        timestamp: timestamp,
+        paramsToSign: paramsToSign,
+      );
+      
+      if (cloudinaryUrl != null) {
+        print('Upload successful: $cloudinaryUrl');
+        
+        // Get current user
+        final user = await _authService.currentUser;
+        if (user == null) throw Exception('User not authenticated');
+
+        // Create gem in Firestore
+        final gem = await _gemService.createGem(
+          userId: user.uid,
+          title: 'My Crystal Creation', // Default title, can be edited later
+          description: 'Created with Crystal Lens', // Default description
+          cloudinaryUrl: cloudinaryUrl,
+          cloudinaryPublicId: publicId,
+          bytes: await File(_controller.file.path).length(),
+          tags: ['crystal_lens'],
         );
-        setState(() => _isCropping = false);
+
+        if (!mounted) return;
+
+        // Navigate to gem gallery
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const GemGalleryPage()),
+          (route) => false, // Remove all previous routes
+        );
+      } else {
+        print('Upload failed: null URL returned');
+        setState(() {
+          _exportText = 'Upload failed';
+        });
       }
+    } catch (e, stackTrace) {
+      print('Error during export: $e');
+      print('Stack trace: $stackTrace');
+      setState(() {
+        _exportText = 'Export failed: $e';
+      });
+    } finally {
+      setState(() => _isExporting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: deepCave,
-      body: Stack(
-        children: [
-          // Animated crystal background
-          AnimatedBuilder(
-            animation: _backgroundController,
-            builder: (context, child) {
-              return CustomPaint(
-                painter: _CrystalBackgroundPainter(
-                  animation: _backgroundController,
-                  amethyst: amethyst,
-                  emerald: emerald,
-                ),
-                child: Container(),
-              );
-            },
-          ),
-
-          // Main content
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Crystal-themed app bar
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: _isCropping ? null : () => Navigator.pop(context),
-                      ),
-                      const Text(
-                        'Crystal Lens',
-                        style: TextStyle(
-                          fontFamily: 'Audiowide',
-                          color: Colors.white,
-                          fontSize: 24,
-                          shadows: [
-                            Shadow(
-                              color: amethyst,
-                              blurRadius: 8,
+    if (!mounted) return const SizedBox.shrink();
+    
+    try {
+      if (!_controller.initialized) {
+        return _buildLoadingScreen();
+      }
+      
+      return Scaffold(
+        backgroundColor: deepCave,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  _buildAppBar(),
+                  Expanded(
+                    child: DefaultTabController(
+                      length: 3,
+                      child: Column(
+                        children: [
+                          _buildTabBar(),
+                          Expanded(
+                            child: TabBarView(
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: [
+                                _buildCropTab(),
+                                _buildTrimTab(),
+                                _buildRotateTab(),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.check, color: Colors.white),
-                        onPressed: _isCropping ? null : () {
-                          // Trigger the crop when check is pressed
-                          _cropperKey.currentState?.triggerCrop();
-                        },
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+              if (_isExporting) _buildExportingOverlay(),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error in build: $e');
+      return _buildLoadingScreen();
+    }
+  }
 
-                // Crystal Lens Cropper
-                Expanded(
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: caveShadow,
+        boxShadow: [
+          BoxShadow(
+            color: amethyst.withOpacity(0.2),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          Text(
+            'Crystal Lens',
+            style: crystalHeading.copyWith(fontSize: 24),
+          ),
+          IconButton(
+            icon: const Icon(Icons.check, color: Colors.white),
+            onPressed: _exportVideo,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      color: caveShadow,
+      child: TabBar(
+        indicatorColor: amethyst,
+        labelColor: amethyst,
+        unselectedLabelColor: silver,
+        tabs: const [
+          Tab(icon: Icon(Icons.crop), text: 'Crop'),
+          Tab(icon: Icon(Icons.content_cut), text: 'Trim'),
+          Tab(icon: Icon(Icons.rotate_right), text: 'Rotate'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCropTab() {
+    return Container(
+      color: deepCave,
+      child: Column(
+        children: [
+          Expanded(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Stack(
                     children: [
-                      CrystalLensCropper(
-                        key: _cropperKey,
-                        videoUrl: widget.videoUrl,
-                        onCropComplete: _handleCrop,
+                      CoverViewer(controller: _controller),
+                      Center(
+                        child: CropGridViewer.preview(controller: _controller),
                       ),
-                      if (_isCropping)
-                        _buildCrystalLoadingOverlay(),
                     ],
                   ),
                 ),
+                // Video play/pause button
+                if (_controller.initialized && !_controller.isPlaying)
+                  GestureDetector(
+                    onTap: () => _controller.video.play(),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.play_arrow, color: deepCave),
+                    ),
+                  ),
               ],
+            ),
+          ),
+          _buildCropActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrimTab() {
+    return Container(
+      color: deepCave,
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _controller.initialized
+                  ? CoverViewer(
+                      controller: _controller,
+                    )
+                  : const Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          Container(
+            color: caveShadow,
+            child: TrimSlider(
+              controller: _controller,
+              height: 60,
+              child: TrimTimeline(
+                controller: _controller,
+                padding: const EdgeInsets.only(top: 10),
+              ),
             ),
           ),
         ],
@@ -166,38 +376,106 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
     );
   }
 
-  Widget _buildCrystalLoadingOverlay() {
+  Widget _buildRotateTab() {
+    return Container(
+      color: deepCave,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildRotateButton(
+                icon: Icons.rotate_left,
+                label: 'Rotate Left',
+                onPressed: () => _controller.rotate90Degrees(RotateDirection.left),
+              ),
+              _buildRotateButton(
+                icon: Icons.rotate_right,
+                label: 'Rotate Right',
+                onPressed: () => _controller.rotate90Degrees(RotateDirection.right),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRotateButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(icon, color: amethyst, size: 48),
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            onPressed();
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: gemText.copyWith(
+            color: silver,
+            fontSize: 16,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCropActions() {
+    return Container(
+      color: caveShadow,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildAspectRatioButton('1:1', 1.0),
+          _buildAspectRatioButton('4:5', 0.8),
+          _buildAspectRatioButton('16:9', 16.0 / 9.0),
+          _buildAspectRatioButton('Free', null),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAspectRatioButton(String label, double? ratio) {
+    return TextButton(
+      onPressed: () {
+        _controller.preferredCropAspectRatio = ratio;
+        setState(() {});
+      },
+      child: Text(
+        label,
+        style: gemText.copyWith(
+          color: _controller.preferredCropAspectRatio == ratio ? amethyst : silver,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportingOverlay() {
     return Container(
       color: deepCave.withOpacity(0.8),
       child: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Crystal formation animation
-            SizedBox(
-              width: 100,
-              height: 100,
-              child: CustomPaint(
-                painter: _CrystalLoadingPainter(
-                  animation: _backgroundController,
-                  amethyst: amethyst,
-                  emerald: emerald,
-                ),
-              ),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(amethyst),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
-              'Crystallizing...',
-              style: gemText.copyWith(
-                color: Colors.white,
-                fontSize: 18,
-                shadows: [
-                  Shadow(
-                    color: amethyst,
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
+              _exportText,
+              style: gemText.copyWith(color: silver),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -205,125 +483,46 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
     );
   }
 
-  @override
-  void dispose() {
-    _backgroundController.dispose();
-    super.dispose();
-  }
-}
-
-class _CrystalLoadingPainter extends CustomPainter {
-  final Animation<double> animation;
-  final Color amethyst;
-  final Color emerald;
-
-  _CrystalLoadingPainter({
-    required this.animation,
-    required this.amethyst,
-    required this.emerald,
-  }) : super(repaint: animation);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2;
-
-    // Draw rotating crystals
-    for (int i = 0; i < 6; i++) {
-      final angle = (i * math.pi / 3) + animation.value * 2 * math.pi;
-      final offset = Offset(
-        center.dx + radius * 0.7 * math.cos(angle),
-        center.dy + radius * 0.7 * math.sin(angle),
-      );
-
-      final path = Path();
-      for (int j = 0; j < 3; j++) {
-        final pointAngle = angle + (j * 2 * math.pi / 3);
-        final point = Offset(
-          offset.dx + radius * 0.2 * math.cos(pointAngle),
-          offset.dy + radius * 0.2 * math.sin(pointAngle),
-        );
-        if (j == 0) {
-          path.moveTo(point.dx, point.dy);
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      path.close();
-
-      final paint = Paint()
-        ..shader = ui.Gradient.linear(
-          offset - Offset(radius * 0.2, 0),
-          offset + Offset(radius * 0.2, 0),
-          [
-            amethyst.withOpacity(0.8 + 0.2 * math.sin(animation.value * math.pi)),
-            emerald.withOpacity(0.8 - 0.2 * math.sin(animation.value * math.pi)),
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: deepCave,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(amethyst),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Preparing Crystal Lens...',
+              style: gemText.copyWith(color: silver),
+            ),
           ],
-        );
-
-      canvas.drawPath(path, paint);
-    }
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-class _CrystalBackgroundPainter extends CustomPainter {
-  final Animation<double> animation;
-  final Color amethyst;
-  final Color emerald;
+class OpacityTransition extends StatelessWidget {
+  final Widget child;
+  final bool visible;
+  final Duration duration;
 
-  _CrystalBackgroundPainter({
-    required this.animation,
-    required this.amethyst,
-    required this.emerald,
-  }) : super(repaint: animation);
+  const OpacityTransition({
+    Key? key,
+    required this.child,
+    required this.visible,
+    this.duration = const Duration(milliseconds: 300),
+  }) : super(key: key);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          amethyst.withOpacity(0.1 + 0.05 * animation.value),
-          emerald.withOpacity(0.1 - 0.05 * animation.value),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(Offset.zero & size);
-
-    // Draw animated crystal patterns
-    final path = Path();
-    final numberOfCrystals = 5;
-    final crystalSize = size.width / numberOfCrystals;
-
-    for (var i = 0; i < numberOfCrystals; i++) {
-      for (var j = 0; j < numberOfCrystals; j++) {
-        final crystalPath = Path();
-        final center = Offset(
-          i * crystalSize + crystalSize / 2,
-          j * crystalSize + crystalSize / 2,
-        );
-        
-        // Create crystal shape
-        final points = <Offset>[];
-        final sides = 6;
-        for (var k = 0; k < sides; k++) {
-          final angle = (k * 2 * math.pi) / sides + animation.value;
-          points.add(Offset(
-            center.dx + math.cos(angle) * crystalSize / 3,
-            center.dy + math.sin(angle) * crystalSize / 3,
-          ));
-        }
-        
-        crystalPath.addPolygon(points, true);
-        path.addPath(crystalPath, Offset.zero);
-      }
-    }
-
-    canvas.drawPath(path, paint);
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: visible ? 1.0 : 0.0,
+      duration: duration,
+      child: child,
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 } 

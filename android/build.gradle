@@ -6,6 +6,8 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        maven { url "https://jitpack.io" }
+        maven { url "https://repo1.maven.org/maven2/" }
     }
 
     dependencies {
@@ -19,6 +21,11 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url "https://jitpack.io" }
+        maven { url 'https://repo.maven.apache.org/maven2/' }
+        maven { url 'https://dl.google.com/dl/android/maven2/' }
+        maven { url "https://s01.oss.sonatype.org/content/repositories/snapshots/" }
+        maven { url "https://s01.oss.sonatype.org/content/repositories/releases/" }
     }
 
     // Add Java compatibility settings

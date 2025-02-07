@@ -27,33 +27,45 @@ class CloudinaryService {
     return List.generate(16, (index) => chars[_random.nextInt(chars.length)]).join();
   }
 
-  Future<String?> uploadVideo(File videoFile) async {
+  Future<String?> uploadVideo(
+    File videoFile, {
+    String? publicId,
+    int? timestamp,
+    Map<String, String>? paramsToSign,
+  }) async {
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final publicId = _generatePublicId();
+      final ts = timestamp ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final pid = publicId ?? _generatePublicId();
 
       // Create signature
-      final paramsToSign = {
-        'public_id': publicId,
-        'timestamp': timestamp.toString(),
+      final params = paramsToSign ?? {
+        'public_id': pid,
+        'timestamp': ts.toString(),
       };
 
-      final signature = _generateSignature(paramsToSign);
+      final signature = _generateSignature(params);
 
       // Create multipart request
       final url = Uri.parse('$_baseUrl/video/upload');
       final request = http.MultipartRequest('POST', url)
-        ..fields['timestamp'] = timestamp.toString()
+        ..fields['timestamp'] = ts.toString()
         ..fields['api_key'] = _apiKey
         ..fields['signature'] = signature
-        ..fields['public_id'] = publicId
-        ..fields['folder'] = 'toktok_videos'
-        ..files.add(
-          await http.MultipartFile.fromPath(
-            'file',
-            videoFile.path,
-          ),
-        );
+        ..fields['public_id'] = pid;
+      
+      // Add any additional fields from paramsToSign
+      params.forEach((key, value) {
+        if (key != 'public_id' && key != 'timestamp') {
+          request.fields[key] = value;
+        }
+      });
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          videoFile.path,
+        ),
+      );
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
