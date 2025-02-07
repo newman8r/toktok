@@ -6,7 +6,7 @@ import 'dart:math' as math;
 
 class CrystalLensCropper extends StatefulWidget {
   final String videoUrl;
-  final Function(Rect) onCropComplete;
+  final Function(ui.Rect cropRect, ui.Size originalSize) onCropComplete;
   final double aspectRatio;
 
   const CrystalLensCropper({
@@ -17,10 +17,10 @@ class CrystalLensCropper extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _CrystalLensCropperState createState() => _CrystalLensCropperState();
+  CrystalLensCropperState createState() => CrystalLensCropperState();
 }
 
-class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTickerProviderStateMixin {
+class CrystalLensCropperState extends State<CrystalLensCropper> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
   late AnimationController _crystalController;
   late Rect _cropRect;
@@ -63,12 +63,8 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
       
       setState(() {
         _videoSize = _videoController.value.size;
-        // Initialize crop rect to slightly smaller than video size
-        _cropRect = Rect.fromCenter(
-          center: Offset(_videoSize.width / 2, _videoSize.height / 2),
-          width: _videoSize.width * 0.9, // Start slightly smaller
-          height: _videoSize.height * 0.9,
-        );
+        // Initialize crop rect to match the scaled video size exactly
+        _cropRect = Rect.fromLTWH(0, 0, _videoSize.width, _videoSize.height);
         _updateHandlePositions();
       });
     } catch (e) {
@@ -124,20 +120,32 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
           constraints.maxHeight / _videoSize.height,
         );
 
+        // Center offset for the video
+        final double xOffset = (constraints.maxWidth - (_videoSize.width * scale)) / 2;
+        final double yOffset = (constraints.maxHeight - (_videoSize.height * scale)) / 2;
+
         final Size scaledVideoSize = Size(
           _videoSize.width * scale,
           _videoSize.height * scale,
         );
 
+        // Scale the crop rect to match the scaled video size and center it
+        final scaledCropRect = Rect.fromLTWH(
+          (_cropRect.left * scale) + xOffset,
+          (_cropRect.top * scale) + yOffset,
+          _cropRect.width * scale,
+          _cropRect.height * scale,
+        );
+
         return Stack(
           children: [
             // Video preview
-            Center(
-              child: SizedBox(
-                width: scaledVideoSize.width,
-                height: scaledVideoSize.height,
-                child: VideoPlayer(_videoController),
-              ),
+            Positioned(
+              left: xOffset,
+              top: yOffset,
+              width: scaledVideoSize.width,
+              height: scaledVideoSize.height,
+              child: VideoPlayer(_videoController),
             ),
             
             // Crystal crop overlay
@@ -147,9 +155,15 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
                   final RenderBox box = context.findRenderObject() as RenderBox;
                   final Offset localPosition = box.globalToLocal(details.globalPosition);
                   
+                  // Convert touch position back to video space, accounting for offset
+                  final Offset videoSpacePosition = Offset(
+                    (localPosition.dx - xOffset) / scale,
+                    (localPosition.dy - yOffset) / scale,
+                  );
+                  
                   // Check if we're touching a handle first
                   for (int i = 0; i < _handlePositions.length; i++) {
-                    if (_isNearHandle(localPosition, _handlePositions[i])) {
+                    if (_isNearHandle(videoSpacePosition, _handlePositions[i])) {
                       setState(() {
                         _activeHandleIndex = i;
                         _isPanning = false;
@@ -159,9 +173,9 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
                   }
                   
                   // If not near a handle or edge, start panning
-                  if (!_isNearEdge(localPosition)) {
+                  if (!_isNearEdge(videoSpacePosition)) {
                     setState(() {
-                      _lastPanPosition = localPosition;
+                      _lastPanPosition = videoSpacePosition;
                       _isPanning = true;
                     });
                   }
@@ -170,10 +184,16 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
                   final RenderBox box = context.findRenderObject() as RenderBox;
                   final Offset localPosition = box.globalToLocal(details.globalPosition);
                   
+                  // Convert touch position back to video space, accounting for offset
+                  final Offset videoSpacePosition = Offset(
+                    (localPosition.dx - xOffset) / scale,
+                    (localPosition.dy - yOffset) / scale,
+                  );
+                  
                   setState(() {
                     if (_isPanning) {
                       // Calculate new position
-                      final Offset delta = localPosition - _lastPanPosition!;
+                      final Offset delta = videoSpacePosition - _lastPanPosition!;
                       Rect newRect = _cropRect.translate(delta.dx, delta.dy);
                       
                       // Constrain to video bounds
@@ -191,9 +211,9 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
                       }
                       
                       _cropRect = newRect;
-                      _lastPanPosition = localPosition;
+                      _lastPanPosition = videoSpacePosition;
                     } else if (_activeHandleIndex != null) {
-                      _updateCropRect(localPosition);
+                      _updateCropRect(videoSpacePosition);
                     }
                     _updateHandlePositions();
                   });
@@ -204,17 +224,20 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
                     _isPanning = false;
                     _lastPanPosition = null;
                   });
-                  widget.onCropComplete(_cropRect);
                 },
                 child: CustomPaint(
                   painter: _CrystalOverlayPainter(
-                    cropRect: _cropRect,
-                    handlePositions: _handlePositions,
+                    cropRect: scaledCropRect,
+                    handlePositions: _handlePositions.map((p) => Offset(
+                      (p.dx * scale) + xOffset,
+                      (p.dy * scale) + yOffset,
+                    )).toList(),
                     crystalAnimation: _crystalController,
                     amethyst: amethyst,
                     sapphire: sapphire,
                     crystalGlow: crystalGlow,
                     videoSize: scaledVideoSize,
+                    videoOffset: Offset(xOffset, yOffset),
                   ),
                 ),
               ),
@@ -291,6 +314,29 @@ class _CrystalLensCropperState extends State<CrystalLensCropper> with SingleTick
     }
   }
 
+  // Add this method to convert screen coordinates back to video coordinates
+  Rect _getOriginalVideoCropRect() {
+    // Get the current scale factor
+    final scale = math.min(
+      context.size?.width ?? _videoSize.width / _videoSize.width,
+      context.size?.height ?? _videoSize.height / _videoSize.height,
+    );
+
+    // Convert the crop rect back to original video coordinates
+    return Rect.fromLTWH(
+      _cropRect.left / scale,
+      _cropRect.top / scale,
+      _cropRect.width / scale,
+      _cropRect.height / scale,
+    );
+  }
+
+  void triggerCrop() {
+    // Use the original video coordinates for cropping
+    final originalCropRect = _getOriginalVideoCropRect();
+    widget.onCropComplete(originalCropRect, _videoSize);
+  }
+
   @override
   void dispose() {
     _videoController.dispose();
@@ -307,6 +353,7 @@ class _CrystalOverlayPainter extends CustomPainter {
   final Color sapphire;
   final Color crystalGlow;
   final Size videoSize;
+  final Offset videoOffset;
 
   // Visual constants
   static const double _handleVisualSize = 12.0; // Visual size of handles
@@ -319,16 +366,11 @@ class _CrystalOverlayPainter extends CustomPainter {
     required this.sapphire,
     required this.crystalGlow,
     required this.videoSize,
+    required this.videoOffset,
   }) : super(repaint: crystalAnimation);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Center the overlay relative to the video size
-    final Offset videoOffset = Offset(
-      (size.width - videoSize.width) / 2,
-      (size.height - videoSize.height) / 2,
-    );
-    
     // Draw semi-transparent overlay
     final Paint overlayPaint = Paint()
       ..color = Colors.black.withOpacity(0.5);
@@ -341,15 +383,15 @@ class _CrystalOverlayPainter extends CustomPainter {
         videoSize.width,
         videoSize.height,
       ))
-      ..addPath(_createCrystalPath(cropRect.shift(videoOffset)), Offset.zero);
+      ..addPath(_createCrystalPath(cropRect), Offset.zero);
     
     canvas.drawPath(overlayPath, overlayPaint);
     
     // Draw crystal border
     final Paint borderPaint = Paint()
       ..shader = ui.Gradient.linear(
-        cropRect.topLeft.translate(videoOffset.dx, videoOffset.dy),
-        cropRect.bottomRight.translate(videoOffset.dx, videoOffset.dy),
+        cropRect.topLeft,
+        cropRect.bottomRight,
         [
           amethyst.withOpacity(0.8),
           sapphire.withOpacity(0.8),
@@ -359,10 +401,10 @@ class _CrystalOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     
-    canvas.drawPath(_createCrystalPath(cropRect.shift(videoOffset)), borderPaint);
+    canvas.drawPath(_createCrystalPath(cropRect), borderPaint);
     
     // Draw handles with crystal effect
-    _drawCrystalHandles(canvas, videoOffset);
+    _drawCrystalHandles(canvas);
   }
 
   Path _createCrystalPath(Rect rect) {
@@ -384,10 +426,10 @@ class _CrystalOverlayPainter extends CustomPainter {
     return path;
   }
 
-  void _drawCrystalHandles(Canvas canvas, Offset videoOffset) {
+  void _drawCrystalHandles(Canvas canvas) {
     final Paint handlePaint = Paint()
       ..shader = ui.Gradient.radial(
-        cropRect.center.translate(videoOffset.dx, videoOffset.dy),
+        cropRect.center,
         cropRect.width / 2,
         [
           amethyst.withOpacity(0.8 + 0.2 * crystalAnimation.value),
@@ -399,10 +441,10 @@ class _CrystalOverlayPainter extends CustomPainter {
       // Draw crystal handle
       final Path handlePath = Path();
       handlePath.addPolygon([
-        position.translate(videoOffset.dx, videoOffset.dy) + Offset(0, -_handleVisualSize),
-        position.translate(videoOffset.dx, videoOffset.dy) + Offset(_handleVisualSize, 0),
-        position.translate(videoOffset.dx, videoOffset.dy) + Offset(0, _handleVisualSize),
-        position.translate(videoOffset.dx, videoOffset.dy) + Offset(-_handleVisualSize, 0),
+        position + Offset(0, -_handleVisualSize),
+        position + Offset(_handleVisualSize, 0),
+        position + Offset(0, _handleVisualSize),
+        position + Offset(-_handleVisualSize, 0),
       ], true);
       
       canvas.drawPath(handlePath, handlePaint);

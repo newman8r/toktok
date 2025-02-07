@@ -194,9 +194,23 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(tileSize / 6),
           border: Border.all(
-            color: Colors.white.withOpacity(0.2),
-            width: 1,
+            color: content['isEdited'] == true 
+              ? amethyst.withOpacity(0.6)
+              : Colors.white.withOpacity(0.2),
+            width: content['isEdited'] == true ? 2 : 1,
           ),
+          boxShadow: content['isEdited'] == true ? [
+            BoxShadow(
+              color: amethyst.withOpacity(0.3),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: sapphire.withOpacity(0.2),
+              blurRadius: 20,
+              spreadRadius: -2,
+            ),
+          ] : null,
         ),
         clipBehavior: Clip.antiAlias,
         child: _buildVideoContent(content),
@@ -326,6 +340,18 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                 opacity: animation,
                 child: VideoCropPage(
                   videoUrl: cloudinaryUrl ?? '',
+                  onCropComplete: (String newVideoUrl) {
+                    // Update the content grid with the new video
+                    final key = '${_currentOffset.dx.toInt()},${_currentOffset.dy.toInt()}';
+                    setState(() {
+                      _contentGrid[key] = {
+                        'type': 'video',
+                        'content': widget.recordedVideo,
+                        'cloudinaryUrl': newVideoUrl,
+                        'isEdited': true, // Mark as edited for visual indicator
+                      };
+                    });
+                  },
                 ),
               ),
             ],

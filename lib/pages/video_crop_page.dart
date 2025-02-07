@@ -3,13 +3,17 @@ import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import '../widgets/crystal_lens_cropper.dart';
+import '../services/cloudinary_service.dart';
+import '../theme/gem_theme.dart';
 
 class VideoCropPage extends StatefulWidget {
   final String videoUrl;
+  final Function(String) onCropComplete;
 
   const VideoCropPage({
     Key? key,
     required this.videoUrl,
+    required this.onCropComplete,
   }) : super(key: key);
 
   @override
@@ -19,6 +23,8 @@ class VideoCropPage extends StatefulWidget {
 class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProviderStateMixin {
   late AnimationController _backgroundController;
   bool _isCropping = false;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final GlobalKey<CrystalLensCropperState> _cropperKey = GlobalKey<CrystalLensCropperState>();
 
   // Crystal theme colors
   static const Color deepCave = Color(0xFF1A1A1A);
@@ -35,6 +41,46 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
 
     // Enable haptic feedback for the mystical experience
     HapticFeedback.mediumImpact();
+  }
+
+  Future<void> _handleCrop(ui.Rect cropRect, ui.Size videoSize) async {
+    setState(() => _isCropping = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      final String croppedVideoUrl = await _cloudinaryService.cropVideo(
+        videoUrl: widget.videoUrl,
+        cropRect: cropRect,
+        originalSize: videoSize,
+      );
+
+      // Success haptic feedback
+      HapticFeedback.heavyImpact();
+      
+      // Call the completion handler with the new URL
+      widget.onCropComplete(croppedVideoUrl);
+      
+      // Close the crop view
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      // Error haptic feedback
+      HapticFeedback.vibrate();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to crop video: $e',
+              style: gemText.copyWith(color: Colors.white),
+            ),
+            backgroundColor: ruby.withOpacity(0.8),
+          ),
+        );
+        setState(() => _isCropping = false);
+      }
+    }
   }
 
   @override
@@ -70,8 +116,8 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: _isCropping ? null : () => Navigator.pop(context),
                       ),
                       const Text(
                         'Crystal Lens',
@@ -89,7 +135,10 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
                       ),
                       IconButton(
                         icon: const Icon(Icons.check, color: Colors.white),
-                        onPressed: _isCropping ? null : _onCropComplete,
+                        onPressed: _isCropping ? null : () {
+                          // Trigger the crop when check is pressed
+                          _cropperKey.currentState?.triggerCrop();
+                        },
                       ),
                     ],
                   ),
@@ -97,55 +146,15 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
 
                 // Crystal Lens Cropper
                 Expanded(
-                  child: CrystalLensCropper(
-                    videoUrl: widget.videoUrl,
-                    onCropComplete: (rect) {
-                      // Handle crop completion
-                      setState(() => _isCropping = true);
-                      // Simulate processing with a mystical delay
-                      Future.delayed(const Duration(seconds: 2), () {
-                        setState(() => _isCropping = false);
-                      });
-                    },
-                  ),
-                ),
-
-                // Crystal control panel
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: deepCave.withOpacity(0.8),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: amethyst.withOpacity(0.2),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Stack(
                     children: [
-                      // Aspect ratio selector
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildAspectRatioButton('1:1', Icons.crop_square),
-                          _buildAspectRatioButton('4:5', Icons.crop_portrait),
-                          _buildAspectRatioButton('16:9', Icons.crop_landscape),
-                          _buildAspectRatioButton('Free', Icons.crop_free),
-                        ],
+                      CrystalLensCropper(
+                        key: _cropperKey,
+                        videoUrl: widget.videoUrl,
+                        onCropComplete: _handleCrop,
                       ),
-                      const SizedBox(height: 16),
-                      // Processing indicator
                       if (_isCropping)
-                        const LinearProgressIndicator(
-                          backgroundColor: deepCave,
-                          valueColor: AlwaysStoppedAnimation<Color>(amethyst),
-                        ),
+                        _buildCrystalLoadingOverlay(),
                     ],
                   ),
                 ),
@@ -157,53 +166,43 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
     );
   }
 
-  Widget _buildAspectRatioButton(String label, IconData icon) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                amethyst.withOpacity(0.8),
-                emerald.withOpacity(0.8),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: amethyst.withOpacity(0.3),
-                blurRadius: 8,
-                spreadRadius: 1,
+  Widget _buildCrystalLoadingOverlay() {
+    return Container(
+      color: deepCave.withOpacity(0.8),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Crystal formation animation
+            SizedBox(
+              width: 100,
+              height: 100,
+              child: CustomPaint(
+                painter: _CrystalLoadingPainter(
+                  animation: _backgroundController,
+                  amethyst: amethyst,
+                  emerald: emerald,
+                ),
               ),
-            ],
-          ),
-          child: IconButton(
-            icon: Icon(icon, color: Colors.white),
-            onPressed: () {
-              // Handle aspect ratio change
-              HapticFeedback.selectionClick();
-            },
-          ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Crystallizing...',
+              style: gemText.copyWith(
+                color: Colors.white,
+                fontSize: 18,
+                shadows: [
+                  Shadow(
+                    color: amethyst,
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
-        ),
-      ],
+      ),
     );
-  }
-
-  void _onCropComplete() {
-    // Handle crop completion
-    HapticFeedback.mediumImpact();
-    // TODO: Implement crop completion
   }
 
   @override
@@ -211,6 +210,63 @@ class _VideoCropPageState extends State<VideoCropPage> with SingleTickerProvider
     _backgroundController.dispose();
     super.dispose();
   }
+}
+
+class _CrystalLoadingPainter extends CustomPainter {
+  final Animation<double> animation;
+  final Color amethyst;
+  final Color emerald;
+
+  _CrystalLoadingPainter({
+    required this.animation,
+    required this.amethyst,
+    required this.emerald,
+  }) : super(repaint: animation);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2;
+
+    // Draw rotating crystals
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * math.pi / 3) + animation.value * 2 * math.pi;
+      final offset = Offset(
+        center.dx + radius * 0.7 * math.cos(angle),
+        center.dy + radius * 0.7 * math.sin(angle),
+      );
+
+      final path = Path();
+      for (int j = 0; j < 3; j++) {
+        final pointAngle = angle + (j * 2 * math.pi / 3);
+        final point = Offset(
+          offset.dx + radius * 0.2 * math.cos(pointAngle),
+          offset.dy + radius * 0.2 * math.sin(pointAngle),
+        );
+        if (j == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      path.close();
+
+      final paint = Paint()
+        ..shader = ui.Gradient.linear(
+          offset - Offset(radius * 0.2, 0),
+          offset + Offset(radius * 0.2, 0),
+          [
+            amethyst.withOpacity(0.8 + 0.2 * math.sin(animation.value * math.pi)),
+            emerald.withOpacity(0.8 - 0.2 * math.sin(animation.value * math.pi)),
+          ],
+        );
+
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class _CrystalBackgroundPainter extends CustomPainter {
