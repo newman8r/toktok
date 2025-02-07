@@ -43,6 +43,8 @@ class _GemMetaEditPageState extends State<GemMetaEditPage> {
     _descriptionController.addListener(_checkForChanges);
   }
 
+  // Monitors changes in title, description, and tags
+  // Enables/disables save button based on modifications
   void _checkForChanges() {
     final hasChanges = 
       _titleController.text != widget.gem.title ||
@@ -54,6 +56,8 @@ class _GemMetaEditPageState extends State<GemMetaEditPage> {
     }
   }
 
+  // Utility function to compare two string lists for equality
+  // Used to detect changes in tags list
   bool _areListsEqual(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
     for (int i = 0; i < a.length; i++) {
@@ -62,6 +66,8 @@ class _GemMetaEditPageState extends State<GemMetaEditPage> {
     return true;
   }
 
+  // Adds a new keyword to the tags list
+  // Handles duplicates and empty strings
   void _addKeyword() {
     final keyword = _keywordController.text.trim().toLowerCase();
     if (keyword.isNotEmpty && !_keywords.contains(keyword)) {
@@ -74,6 +80,8 @@ class _GemMetaEditPageState extends State<GemMetaEditPage> {
     }
   }
 
+  // Removes a keyword from the tags list
+  // Updates UI and save button state
   void _removeKeyword(String keyword) {
     setState(() {
       _keywords.remove(keyword);
@@ -82,6 +90,8 @@ class _GemMetaEditPageState extends State<GemMetaEditPage> {
     HapticFeedback.mediumImpact();
   }
 
+  // Saves changes to Firestore
+  // Handles loading states and error conditions
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 

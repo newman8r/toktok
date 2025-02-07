@@ -53,6 +53,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     _loadUserGems();
   }
 
+  // Handles real-time search functionality across title, description, and tags
+  // Updates filtered gems list and tag suggestions as user types
   void _handleSearch() {
     final query = _searchController.text.toLowerCase();
     setState(() {
@@ -74,6 +76,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     });
   }
 
+  // Retrieves all unique tags from user's gems
+  // Used for tag suggestions and filtering
   List<String> _getAllUniqueTags() {
     return _userGems
         .expand((gem) => gem.tags)
@@ -86,6 +90,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     _handleSearch();
   }
 
+  // Loads user's gems from Firestore
+  // Handles loading states and error conditions
   Future<void> _loadUserGems() async {
     try {
       print('🔄 Starting to load user gems...');
@@ -274,6 +280,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     );
   }
 
+  // Builds the crystal-themed app bar with blur effects
+  // Includes navigation and title with custom styling
   Widget _buildCrystalAppBar() {
     return SliverAppBar(
       expandedHeight: 200,
@@ -321,6 +329,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     );
   }
 
+  // Creates the statistics section showing gem counts and storage usage
+  // Adapts layout based on screen width
   Widget _buildStatsSection() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -380,6 +390,7 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     );
   }
 
+  // Formats file size from bytes to human-readable format (B, KB, MB, GB)
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -429,26 +440,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     );
   }
 
-  Widget _buildGemGrid() {
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16.0,
-        crossAxisSpacing: 16.0,
-        childAspectRatio: 0.8,
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index < _filteredGems.length) {
-            return _buildGemCard(_filteredGems[index]);
-          }
-          return null;
-        },
-        childCount: _filteredGems.length,
-      ),
-    );
-  }
-
+  // Builds individual gem cards with thumbnails and metadata
+  // Includes hover effects and navigation to gem explorer
   Widget _buildGemCard(GemModel gem) {
     final thumbnailUrl = _cloudinaryService.getThumbnailUrl(gem.cloudinaryUrl);
     
@@ -623,6 +616,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     );
   }
 
+  // Formats relative time (e.g., "2h ago", "3d ago")
+  // Used for displaying gem creation times
   String _formatTimeAgo(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
     
@@ -641,6 +636,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     }
   }
 
+  // Creates the search bar with real-time filtering
+  // Includes clear button and styling
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -682,6 +679,8 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     );
   }
 
+  // Displays tag suggestions and filtered gem count
+  // Allows quick filtering by clicking tags
   Widget _buildTagSuggestions() {
     if (_suggestedTags.isEmpty) return const SizedBox.shrink();
 

@@ -138,16 +138,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     super.dispose();
   }
 
-  void _generateSurroundingContent(Offset center) {
-    _directions.forEach((direction, data) {
-      final offset = center + (data['offset'] as Offset);
-      final key = '${offset.dx.toInt()},${offset.dy.toInt()}';
-      if (!_contentGrid.containsKey(key)) {
-        _contentGrid[key] = _editOptions[math.Random().nextInt(_editOptions.length)];
-      }
-    });
-  }
-
+  // Handles spatial navigation in the gem explorer grid
+  // direction: The direction to move (e.g., 'up', 'topRight', etc.)
+  // Creates a slide animation and updates the content grid
   Future<void> _navigate(String direction) async {
     if (_slideController?.isAnimating ?? false) return;
     
@@ -187,6 +180,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     _slideController!.reset();
   }
 
+  // Builds a tile in the gem grid - either a video tile or an edit option tile
+  // content: Map containing tile data (type, content, etc.)
+  // isCenter: Whether this tile is in the center of the grid
   Widget _buildGemTile({required Map<String, dynamic> content, bool isCenter = false}) {
     final size = MediaQuery.of(context).size;
     final tileSize = size.width * (isCenter ? 0.3 : 0.25);
@@ -266,44 +262,8 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     );
   }
 
-  Widget _buildVideoContent(Map<String, dynamic> content) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        if (_videoController.value.isInitialized) 
-          SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _videoController.value.size.width,
-                height: _videoController.value.size.height,
-                child: VideoPlayer(_videoController),
-              ),
-            ),
-          )
-        else
-          const Center(
-            child: CircularProgressIndicator(
-              color: Colors.white,
-            ),
-          ),
-        if (!_videoController.value.isPlaying)
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withOpacity(0.5),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: const Icon(
-              Icons.play_arrow,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-      ],
-    );
-  }
-
+  // Handles the selection of an edit option (like trim, effects, etc.)
+  // Creates a spatial transition and shows appropriate UI for the selected option
   void _handleEditOption(Map<String, dynamic> option) async {
     HapticFeedback.mediumImpact();
     
@@ -374,6 +334,130 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
         },
       );
     }
+  }
+
+  // Creates a hexagonal grid layout with the video in the center
+  // surrounded by edit options in a crystal-like pattern
+  Widget _buildHexagonalGrid() {
+    // Get edit options for surrounding tiles in the correct positions
+    final topLeft = _editOptions[0];     // Style Transfer
+    final topRight = _editOptions[1];    // Enhance
+    final right = _editOptions[2];       // Audio
+    final bottomRight = _editOptions[3]; // Effects
+    final bottomLeft = _editOptions[4];  // Trim
+    final left = _editOptions[5];        // Transform
+
+    // Center content is always the video
+    final centerContent = {
+      'type': 'video',
+      'content': widget.recordedVideo,
+      'cloudinaryUrl': cloudinaryUrl,
+    };
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Top row
+              Padding(
+                padding: EdgeInsets.only(bottom: constraints.maxWidth * 0.02),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGemTile(content: topLeft),    // Style Transfer (top-left)
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: topRight),   // Enhance (top-right)
+                  ],
+                ),
+              ),
+              // Middle row (with center tile)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: constraints.maxWidth * 0.02),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGemTile(content: left),       // Transform (left)
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: centerContent, isCenter: true),
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: right),      // Audio (right)
+                  ],
+                ),
+              ),
+              // Bottom row
+              Padding(
+                padding: EdgeInsets.only(top: constraints.maxWidth * 0.02),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGemTile(content: bottomLeft), // Trim (bottom-left)
+                    SizedBox(width: constraints.maxWidth * 0.02),
+                    _buildGemTile(content: bottomRight),// Effects (bottom-right)
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Displays video content within a tile with play/pause controls
+  // and loading states
+  Widget _buildVideoContent(Map<String, dynamic> content) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (_videoController.value.isInitialized) 
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _videoController.value.size.width,
+                height: _videoController.value.size.height,
+                child: VideoPlayer(_videoController),
+              ),
+            ),
+          )
+        else
+          const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
+            ),
+          ),
+        if (!_videoController.value.isPlaying)
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withOpacity(0.5),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: const Icon(
+              Icons.play_arrow,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Generates surrounding content tiles based on the current position
+  // Ensures there are always options available in each direction
+  void _generateSurroundingContent(Offset center) {
+    _directions.forEach((direction, data) {
+      final offset = center + (data['offset'] as Offset);
+      final key = '${offset.dx.toInt()},${offset.dy.toInt()}';
+      if (!_contentGrid.containsKey(key)) {
+        _contentGrid[key] = _editOptions[math.Random().nextInt(_editOptions.length)];
+      }
+    });
   }
 
   @override
@@ -530,76 +614,6 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildHexagonalGrid() {
-    // Get edit options for surrounding tiles in the correct positions
-    final topLeft = _editOptions[0];     // Style Transfer
-    final topRight = _editOptions[1];    // Enhance
-    final right = _editOptions[2];       // Audio
-    final bottomRight = _editOptions[3]; // Effects
-    final bottomLeft = _editOptions[4];  // Trim
-    final left = _editOptions[5];        // Transform
-
-    // Center content is always the video
-    final centerContent = {
-      'type': 'video',
-      'content': widget.recordedVideo,
-      'cloudinaryUrl': cloudinaryUrl,
-    };
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Top row
-              Padding(
-                padding: EdgeInsets.only(bottom: constraints.maxWidth * 0.02),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildGemTile(content: topLeft),    // Style Transfer (top-left)
-                    SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: topRight),   // Enhance (top-right)
-                  ],
-                ),
-              ),
-              // Middle row (with center tile)
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: constraints.maxWidth * 0.02),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildGemTile(content: left),       // Transform (left)
-                    SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: centerContent, isCenter: true),
-                    SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: right),      // Audio (right)
-                  ],
-                ),
-              ),
-              // Bottom row
-              Padding(
-                padding: EdgeInsets.only(top: constraints.maxWidth * 0.02),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildGemTile(content: bottomLeft), // Trim (bottom-left)
-                    SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: bottomRight),// Effects (bottom-right)
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
