@@ -3,9 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import 'publish_gem_page.dart';
+import 'video_crop_page.dart';
+import 'package:flutter/rendering.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
@@ -282,14 +285,54 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     );
   }
 
-  void _handleEditOption(Map<String, dynamic> option) {
+  void _handleEditOption(Map<String, dynamic> option) async {
     HapticFeedback.mediumImpact();
     
     // Get the direction directly from the option
     final direction = option['direction'] as String;
     
     print('Selected edit option: ${option['name']} (moving ${option['direction']})');
-    _navigate(direction);
+    
+    // First, perform the spatial navigation
+    await _navigate(direction);
+    
+    // If this is the trim option, show the crop view
+    if (option['name'] == 'Trim') {
+      // Add a slight delay to ensure navigation is complete
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Show the crystal lens cropper with glass effect overlay
+      await showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Crop View',
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return Stack(
+            children: [
+              // Glass effect background
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    color: deepCave.withOpacity(0.5),
+                  ),
+                ),
+              ),
+              
+              // Crop page with fade transition
+              FadeTransition(
+                opacity: animation,
+                child: VideoCropPage(
+                  videoUrl: cloudinaryUrl ?? '',
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   @override
