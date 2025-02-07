@@ -9,6 +9,11 @@ class ResendService {
     required String toEmail,
     required String gemUrl,
   }) async {
+    // Create thumbnail URL by adding Cloudinary transformation for JPEG thumbnail
+    final thumbnailUrl = gemUrl
+      .replaceAll('/upload/', '/upload/w_600,h_400,c_fill,so_0,f_jpg/')
+      .replaceAll('.mp4', '.jpg');
+    
     try {
       final response = await http.post(
         Uri.parse(_apiEndpoint),
@@ -37,6 +42,24 @@ class ResendService {
                 font-size: 24px;
                 margin-bottom: 20px;
               ">Your breeze.help video is ready</h1>
+              
+              <div style="
+                width: 100%;
+                margin: 20px 0;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+              ">
+                <img 
+                  src="$thumbnailUrl" 
+                  alt="Video Preview"
+                  style="
+                    width: 100%;
+                    height: auto;
+                    display: block;
+                  "
+                />
+              </div>
               
               <p style="
                 text-align: center;
