@@ -379,24 +379,60 @@ class _VideoCropPageState extends State<VideoCropPage> {
   Widget _buildRotateTab() {
     return Container(
       color: deepCave,
-      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildRotateButton(
-                icon: Icons.rotate_left,
-                label: 'Rotate Left',
-                onPressed: () => _controller.rotate90Degrees(RotateDirection.left),
-              ),
-              _buildRotateButton(
-                icon: Icons.rotate_right,
-                label: 'Rotate Right',
-                onPressed: () => _controller.rotate90Degrees(RotateDirection.right),
-              ),
-            ],
+          // Add video preview with rotation
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _controller.initialized
+                  ? Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CoverViewer(controller: _controller),
+                        Center(
+                          child: CropGridViewer.preview(
+                            controller: _controller,
+                          ),
+                        ),
+                        // Video play/pause button
+                        if (!_controller.isPlaying)
+                          GestureDetector(
+                            onTap: () => _controller.video.play(),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.play_arrow, color: deepCave),
+                            ),
+                          ),
+                      ],
+                    )
+                  : const Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          // Rotation controls
+          Container(
+            color: caveShadow,
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildRotateButton(
+                  icon: Icons.rotate_left,
+                  label: 'Rotate Left',
+                  onPressed: () => _controller.rotate90Degrees(RotateDirection.left),
+                ),
+                _buildRotateButton(
+                  icon: Icons.rotate_right,
+                  label: 'Rotate Right',
+                  onPressed: () => _controller.rotate90Degrees(RotateDirection.right),
+                ),
+              ],
+            ),
           ),
         ],
       ),
