@@ -4,6 +4,7 @@ A beautifully crafted Flutter application that combines the engaging features of
 
 ## 🌟 Features
 
+### Core Features
 - **Immersive Video Experience**: Smooth, full-screen video playback with intuitive gestures
 - **Creative Studio**: Professional camera interface with real-time filters and effects
 - **Cloud Storage**: Seamless integration with Cloudinary for reliable video hosting
@@ -12,6 +13,18 @@ A beautifully crafted Flutter application that combines the engaging features of
 - **Beautiful UI**: Custom-designed gem-themed interface with fluid animations
 - **Offline Support**: Local video caching for smooth playback
 - **Cross-platform**: Works on both iOS and Android
+
+### New Features 🆕
+- **Advanced Search**: Search videos by title, description, and tags with real-time filtering
+- **Tag System**: Add and manage tags for better content organization
+- **Smart Navigation**: Improved navigation with fallback to prevent black screens
+- **Metadata Editor**: Edit video details including title, description, and tags
+- **Tag Suggestions**: Smart tag suggestions based on your content
+- **Statistics Dashboard**: View collection stats including storage usage and activity
+- **Crystal UI**: Enhanced UI with beautiful crystal-themed animations
+- **Haptic Feedback**: Tactile feedback for better user experience
+- **Pull-to-Refresh**: Easy content updating with smooth animations
+- **Adaptive Layout**: Responsive design that works on various screen sizes
 
 ## 🏗️ Architecture
 
@@ -32,6 +45,8 @@ lib/
 - **Cloudinary Service**: Manages video upload, processing, and delivery
 - **Gem Service**: Core business logic for video management and social features
 - **Custom Widgets**: Reusable components following consistent design patterns
+- **Search Service**: Handles content discovery and filtering
+- **Tag Management**: Organizes and manages video metadata
 
 ## 🚀 Getting Started
 
@@ -73,17 +88,17 @@ flutter run
 
 ### Android
 
-1. Create a keystore:
+1. Create a keystore (if not already created):
 ```bash
 keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 ```
 
-2. Build the app bundle:
+2. Build APK for Firebase Distribution:
 ```bash
-flutter build appbundle
+flutter build apk --release
 ```
 
-The release bundle will be at: `build/app/outputs/bundle/release/app-release.aab`
+The release APK will be at: `build/app/outputs/flutter-apk/app-release.apk`
 
 ### iOS
 
@@ -105,12 +120,15 @@ flutter build ipa
 - Efficient memory management
 - Image and video caching
 - Background processing for uploads
+- Smart search indexing
+- Optimized tag filtering
 
 ### Security Features
 - Secure Firebase Authentication
 - Protected API endpoints
 - Environment variable management
 - Proper key and secret handling
+- Safe navigation handling
 
 ## 📚 Dependencies
 
@@ -124,6 +142,16 @@ Core dependencies:
 - `permission_handler`: ^11.3.0
 - `cloudinary`: ^1.2.0
 - `flutter_dotenv`: ^5.1.0
+
+## 🎯 Future Roadmap
+
+Planned features and improvements:
+- Enhanced video editing capabilities
+- Social sharing integrations
+- Advanced analytics dashboard
+- AI-powered content recommendations
+- Collaborative features
+- Multi-platform support (web, desktop)
 
 ## 🤝 Contributing
 
