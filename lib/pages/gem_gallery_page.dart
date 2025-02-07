@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../models/gem_model.dart';
 import 'dart:io';
 import '../services/cloudinary_service.dart';
+import '../pages/creator_studio_page.dart';
 
 class GemGalleryPage extends StatefulWidget {
   const GemGalleryPage({super.key});
@@ -25,8 +26,12 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
   final GemService _gemService = GemService();
   final AuthService _authService = AuthService();
   final CloudinaryService _cloudinaryService = CloudinaryService();
+  final TextEditingController _searchController = TextEditingController();
   
   List<GemModel> _userGems = [];
+  List<GemModel> _filteredGems = [];
+  List<String> _suggestedTags = [];
+  int _hiddenGemsCount = 0;
   bool _isLoading = true;
   String? _error;
 
@@ -44,7 +49,41 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
       duration: crystalGrow,
     )..forward();
 
+    _searchController.addListener(_handleSearch);
     _loadUserGems();
+  }
+
+  void _handleSearch() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredGems = _userGems;
+        _hiddenGemsCount = 0;
+        _suggestedTags = _getAllUniqueTags();
+      } else {
+        _filteredGems = _userGems.where((gem) {
+          return gem.title.toLowerCase().contains(query) ||
+                 gem.description.toLowerCase().contains(query) ||
+                 gem.tags.any((tag) => tag.toLowerCase().contains(query));
+        }).toList();
+        _hiddenGemsCount = _userGems.length - _filteredGems.length;
+        _suggestedTags = _getAllUniqueTags()
+            .where((tag) => tag.toLowerCase().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  List<String> _getAllUniqueTags() {
+    return _userGems
+        .expand((gem) => gem.tags)
+        .toSet()
+        .toList();
+  }
+
+  void _onTagSelected(String tag) {
+    _searchController.text = tag;
+    _handleSearch();
   }
 
   Future<void> _loadUserGems() async {
@@ -66,6 +105,7 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
       if (mounted) {
         setState(() {
           _userGems = gems;
+          _filteredGems = gems;
           _isLoading = false;
         });
         print('✨ Updated UI with ${_userGems.length} gems');
@@ -85,125 +125,151 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
   void dispose() {
     _shimmerController.dispose();
     _crystalGrowthController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: deepCave,
-      body: Stack(
-        children: [
-          // Animated crystal cave background
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _shimmerController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _CrystalBackgroundPainter(
-                    progress: _shimmerController.value,
-                  ),
-                );
-              },
+    return WillPopScope(
+      onWillPop: () async {
+        // Try to pop normally
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          // If we can't pop, go to CreatorStudio instead of black screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreatorStudioPage(),
             ),
-          ),
-
-          // Main content
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // Crystal App Bar
-              _buildCrystalAppBar(),
-              
-              // Pull to refresh
-              CupertinoSliverRefreshControl(
-                onRefresh: _loadUserGems,
-                builder: (context, refreshState, pulledExtent, refreshTriggerPullDistance, refreshIndicatorExtent) {
-                  return Center(
-                    child: Container(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: const CircularProgressIndicator(
-                        color: amethyst,
-                      ),
+          );
+        }
+        return false; // We handle the navigation ourselves
+      },
+      child: Scaffold(
+        backgroundColor: deepCave,
+        body: Stack(
+          children: [
+            // Animated crystal cave background
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _shimmerController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _CrystalBackgroundPainter(
+                      progress: _shimmerController.value,
                     ),
                   );
                 },
               ),
-              
-              // Stats Section
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: _buildStatsSection(),
-                ),
-              ),
+            ),
 
-              // Gallery Grid or Loading/Error State
-              if (_isLoading)
-                const SliverFillRemaining(
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: amethyst,
-                    ),
-                  ),
-                )
-              else if (_error != null)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: ruby,
-                          size: 64,
+            // Main content
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // Crystal App Bar
+                _buildCrystalAppBar(),
+                
+                // Pull to refresh
+                CupertinoSliverRefreshControl(
+                  onRefresh: _loadUserGems,
+                  builder: (context, refreshState, pulledExtent, refreshTriggerPullDistance, refreshIndicatorExtent) {
+                    return Center(
+                      child: Container(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: const CircularProgressIndicator(
+                          color: amethyst,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: gemText.copyWith(color: ruby),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        GemButton(
-                          text: 'Try Again',
-                          onPressed: _loadUserGems,
-                          gemColor: emerald,
-                          isAnimated: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (_userGems.isEmpty)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.diamond_outlined,
-                          color: silver,
-                          size: 64,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No gems found in your collection yet.\nStart creating to fill your treasure chest!',
-                          style: gemText.copyWith(color: silver),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  sliver: _buildGemGrid(),
+                      ),
+                    );
+                  },
                 ),
-            ],
-          ),
-        ],
+                
+                // Stats Section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      children: [
+                        _buildSearchBar(),
+                        const SizedBox(height: 16),
+                        _buildTagSuggestions(),
+                        const SizedBox(height: 24),
+                        _buildStatsSection(),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Gallery Grid or Loading/Error State
+                if (_isLoading)
+                  const SliverFillRemaining(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: amethyst,
+                      ),
+                    ),
+                  )
+                else if (_error != null)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: ruby,
+                            size: 64,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _error!,
+                            style: gemText.copyWith(color: ruby),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          GemButton(
+                            text: 'Try Again',
+                            onPressed: _loadUserGems,
+                            gemColor: emerald,
+                            isAnimated: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_userGems.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.diamond_outlined,
+                            color: silver,
+                            size: 64,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No gems found in your collection yet.\nStart creating to fill your treasure chest!',
+                            style: gemText.copyWith(color: silver),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    sliver: _buildGemGrid(),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -239,7 +305,18 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: silver),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreatorStudioPage(),
+              ),
+            );
+          }
+        },
       ),
     );
   }
@@ -362,12 +439,12 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
       ),
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          if (index < _userGems.length) {
-            return _buildGemCard(_userGems[index]);
+          if (index < _filteredGems.length) {
+            return _buildGemCard(_filteredGems[index]);
           }
           return null;
         },
-        childCount: _userGems.length,
+        childCount: _filteredGems.length,
       ),
     );
   }
@@ -562,6 +639,98 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     } else {
       return 'Just now';
     }
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: caveShadow.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(emeraldCut),
+        border: Border.all(
+          color: amethyst.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search, color: silver),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: gemText.copyWith(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search gems by title, description, or tags...',
+                hintStyle: gemText.copyWith(
+                  color: silver.withOpacity(0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear, color: silver),
+              onPressed: () {
+                _searchController.clear();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagSuggestions() {
+    if (_suggestedTags.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_hiddenGemsCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '$_hiddenGemsCount gems filtered out',
+              style: gemText.copyWith(
+                color: silver.withOpacity(0.7),
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _suggestedTags.map((tag) {
+            return GestureDetector(
+              onTap: () => _onTagSelected(tag),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: sapphire.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: sapphire.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  tag,
+                  style: gemText.copyWith(
+                    color: silver,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 }
 

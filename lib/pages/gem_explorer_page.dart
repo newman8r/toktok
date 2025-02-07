@@ -9,6 +9,8 @@ import '../widgets/gem_button.dart';
 import 'publish_gem_page.dart';
 import 'video_crop_page.dart';
 import 'package:flutter/rendering.dart';
+import 'gem_meta_edit_page.dart';
+import '../services/gem_service.dart';
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
@@ -29,6 +31,7 @@ class GemExplorerPage extends StatefulWidget {
 class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderStateMixin {
   late VideoPlayerController _videoController;
   late AnimationController _shimmerController;
+  final GemService _gemService = GemService();
   String? _errorMessage;
   bool _isPlaying = false;
   
@@ -385,6 +388,89 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
 
     return Scaffold(
       backgroundColor: deepCave,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: Text(
+          'Gem Explorer',
+          style: crystalHeading.copyWith(fontSize: 20),
+        ),
+        actions: [
+          if (widget.gemId != null) // Only show edit button for existing gems
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                icon: const Icon(Icons.edit, color: emerald, size: 20),
+                label: Text(
+                  'Edit Meta',
+                  style: gemText.copyWith(
+                    color: emerald,
+                    fontSize: 14,
+                  ),
+                ),
+                onPressed: () async {
+                  final gem = await _gemService.getGem(widget.gemId!);
+                  if (gem != null && mounted) {
+                    final result = await Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => 
+                          GemMetaEditPage(
+                            gemId: widget.gemId!,
+                            gem: gem,
+                          ),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          const begin = Offset(1.0, 0.0);
+                          const end = Offset.zero;
+                          const curve = Curves.easeInOutQuart;
+                          var tween = Tween(begin: begin, end: end)
+                              .chain(CurveTween(curve: curve));
+                          var offsetAnimation = animation.drive(tween);
+                          return SlideTransition(position: offsetAnimation, child: child);
+                        },
+                        transitionDuration: caveTransition,
+                      ),
+                    );
+                    
+                    // Refresh the page if changes were made
+                    if (result == true) {
+                      setState(() {});
+                    }
+                  }
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: emerald.withOpacity(0.1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(emeraldCut),
+                    side: BorderSide(
+                      color: emerald.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+        flexibleSpace: ClipRRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    amethyst.withOpacity(0.15),
+                    deepCave.withOpacity(0.5),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,

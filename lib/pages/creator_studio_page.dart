@@ -7,6 +7,7 @@ import '../services/cloudinary_service.dart';
 import '../services/gem_service.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'camera_page.dart';
 import 'gem_gallery_page.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,39 +21,53 @@ class CreatorStudioPage extends StatefulWidget {
 
 class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  final GemService _gemService = GemService();
   final ImagePicker _picker = ImagePicker();
-  late final TabController _tabController;
   late final AnimationController _shimmerController;
-  final _formKey = GlobalKey<FormState>();
+  late final AnimationController _sparkleController;
+  int _totalGems = 0;
+  bool _isLoading = true;
   
-  String _title = '';
-  String _description = '';
-  String _category = 'Music';
-  bool _isOriginalContent = true;
-  
-  final List<String> _categories = [
-    'Music',
-    'Dance',
-    'Comedy',
-    'Education',
-    'Gaming',
-    'Lifestyle',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat();
+
+    _sparkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+
+    _loadGemCount();
+  }
+
+  Future<void> _loadGemCount() async {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final gems = await _gemService.getUserGems(user.uid);
+        if (mounted) {
+          setState(() {
+            _totalGems = gems.length;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading gem count: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _shimmerController.dispose();
+    _sparkleController.dispose();
     super.dispose();
   }
 
@@ -91,9 +106,7 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
                     children: [
                       _buildWelcomeSection(),
                       const SizedBox(height: 32),
-                      _buildCreatorTabs(),
-                      const SizedBox(height: 32),
-                      _buildContentForm(),
+                      _buildUploadSection(),
                     ],
                   ),
                 ),
@@ -107,10 +120,12 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 200,
-      floating: false,
       pinned: true,
       backgroundColor: Colors.transparent,
+      title: Text(
+        'Creator Studio',
+        style: crystalHeading.copyWith(fontSize: 20),
+      ),
       actions: [
         // Gallery button
         Padding(
@@ -171,21 +186,15 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
       flexibleSpace: ClipRRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: FlexibleSpaceBar(
-            title: Text(
-              'Creator Studio',
-              style: crystalHeading.copyWith(fontSize: 24),
-            ),
-            background: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    amethyst.withOpacity(0.3),
-                    deepCave.withOpacity(0.9),
-                  ],
-                ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  amethyst.withOpacity(0.15),
+                  deepCave.withOpacity(0.5),
+                ],
               ),
             ),
           ),
@@ -215,242 +224,109 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
               color: amethyst,
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Share your unique content with the world. Your creativity is like a precious gem waiting to be discovered.',
-            style: gemText.copyWith(
-              color: silver,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              _buildStatCard('Views Today', '1.2K', emerald),
-              const SizedBox(width: 16),
-              _buildStatCard('Followers', '842', sapphire),
-              const SizedBox(width: 16),
-              _buildStatCard('Gems Earned', '156', ruby),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(emeraldCut),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: crystalHeading.copyWith(
-                fontSize: 24,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: gemText.copyWith(
-                fontSize: 12,
-                color: silver,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCreatorTabs() {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: caveShadow.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(emeraldCut),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(emeraldCut),
-          color: amethyst.withOpacity(0.3),
-        ),
-        tabs: const [
-          Tab(text: 'Upload'),
-          Tab(text: 'Analytics'),
-          Tab(text: 'Community'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContentForm() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGemTextField(
-            label: 'Content Title',
-            hint: 'Give your creation a captivating title',
-            onChanged: (value) => _title = value,
-          ),
-          const SizedBox(height: 24),
-          _buildGemTextField(
-            label: 'Description',
-            hint: 'Tell your story...',
-            maxLines: 4,
-            onChanged: (value) => _description = value,
-          ),
-          const SizedBox(height: 24),
-          _buildCategoryDropdown(),
-          const SizedBox(height: 24),
-          _buildOriginalContentSwitch(),
-          const SizedBox(height: 32),
-          _buildUploadSection(),
           const SizedBox(height: 32),
           Center(
-            child: GemButton(
-              text: 'Share Creation',
-              onPressed: _submitContent,
-              gemColor: emerald,
-              isAnimated: true,
-            ),
+            child: _buildFancyGemButton(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGemTextField({
-    required String label,
-    required String hint,
-    required ValueChanged<String> onChanged,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: gemText.copyWith(
-            color: silver,
-            fontSize: 14,
+  Widget _buildFancyGemButton() {
+    return GestureDetector(
+      onTapDown: (_) => _sparkleController.forward(from: 0),
+      onTapUp: (_) {
+        HapticFeedback.mediumImpact();
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              const GemGalleryPage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: caveTransition,
           ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          style: gemText.copyWith(color: Colors.white),
-          maxLines: maxLines,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: gemText.copyWith(
-              color: silver.withOpacity(0.5),
-            ),
-            filled: true,
-            fillColor: caveShadow.withOpacity(0.3),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(emeraldCut),
-              borderSide: BorderSide(
-                color: amethyst.withOpacity(0.3),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(emeraldCut),
-              borderSide: BorderSide(
-                color: amethyst.withOpacity(0.3),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(emeraldCut),
-              borderSide: BorderSide(
-                color: amethyst.withOpacity(0.8),
-              ),
+        );
+      },
+      child: Stack(
+        children: [
+          // Animated background shimmer
+          AnimatedBuilder(
+            animation: _shimmerController,
+            builder: (context, child) {
+              return CustomPaint(
+                size: const Size(200, 200),
+                painter: _GemButtonPainter(
+                  shimmerProgress: _shimmerController.value,
+                  sparkleProgress: _sparkleController.value,
+                ),
+              );
+            },
+          ),
+          
+          // Content
+          Container(
+            width: 200,
+            height: 200,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.diamond,
+                  color: Colors.white70,
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'View My Library',
+                  style: crystalHeading.copyWith(
+                    fontSize: 20,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: amethyst.withOpacity(0.5),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!_isLoading) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: deepCave.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: amethyst.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      '$_totalGems Gems',
+                      style: gemText.copyWith(
+                        color: silver,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Category',
-          style: gemText.copyWith(
-            color: silver,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: caveShadow.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(emeraldCut),
-            border: Border.all(
-              color: amethyst.withOpacity(0.3),
-            ),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _category,
-              isExpanded: true,
-              dropdownColor: caveShadow,
-              style: gemText.copyWith(color: Colors.white),
-              items: _categories.map((String category) {
-                return DropdownMenuItem<String>(
-                  value: category,
-                  child: Text(category),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  setState(() => _category = newValue);
-                }
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOriginalContentSwitch() {
-    return Row(
-      children: [
-        Text(
-          'Original Content',
-          style: gemText.copyWith(
-            color: silver,
-            fontSize: 14,
-          ),
-        ),
-        const Spacer(),
-        Switch(
-          value: _isOriginalContent,
-          onChanged: (bool value) {
-            setState(() => _isOriginalContent = value);
-          },
-          activeColor: emerald,
-          activeTrackColor: emerald.withOpacity(0.3),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -609,22 +485,6 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
         );
       }
       print('❌ Error picking file: $e');
-    }
-  }
-
-  void _submitContent() {
-    if (_formKey.currentState?.validate() ?? false) {
-      // TODO: Implement content submission
-      HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Content submitted successfully!',
-            style: gemText,
-          ),
-          backgroundColor: emerald.withOpacity(0.8),
-        ),
-      );
     }
   }
 }
@@ -842,5 +702,94 @@ class _UploadDialogState extends State<_UploadDialog> {
               ),
       ),
     );
+  }
+}
+
+class _GemButtonPainter extends CustomPainter {
+  final double shimmerProgress;
+  final double sparkleProgress;
+  final _random = math.Random();
+
+  _GemButtonPainter({
+    required this.shimmerProgress,
+    required this.sparkleProgress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2;
+
+    // Draw gem base shape
+    final path = Path();
+    for (var i = 0; i < 8; i++) {
+      final angle = i * math.pi / 4;
+      final x = center.dx + radius * math.cos(angle);
+      final y = center.dy + radius * math.sin(angle);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+
+    // Iridescent gradient
+    final paint = Paint()
+      ..shader = SweepGradient(
+        colors: [
+          amethyst.withOpacity(0.6),
+          sapphire.withOpacity(0.6),
+          emerald.withOpacity(0.6),
+          ruby.withOpacity(0.6),
+          amethyst.withOpacity(0.6),
+        ],
+        transform: GradientRotation(shimmerProgress * 2 * math.pi),
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    canvas.drawPath(path, paint);
+
+    // Draw sparkles
+    final sparkles = List.generate(12, (index) {
+      final angle = index * (math.pi * 2 / 12);
+      final distance = radius * (0.3 + 0.7 * _random.nextDouble());
+      return Offset(
+        center.dx + distance * math.cos(angle + sparkleProgress * 2 * math.pi),
+        center.dy + distance * math.sin(angle + sparkleProgress * 2 * math.pi),
+      );
+    });
+
+    final sparklePaint = Paint()
+      ..color = Colors.white.withOpacity((1 - sparkleProgress) * 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    for (final sparkle in sparkles) {
+      canvas.drawCircle(sparkle, 2 + 2 * _random.nextDouble(), sparklePaint);
+    }
+
+    // Draw facet lines
+    final facetPaint = Paint()
+      ..color = Colors.white.withOpacity(0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (var i = 0; i < 8; i++) {
+      final angle = i * math.pi / 4;
+      canvas.drawLine(
+        center,
+        Offset(
+          center.dx + radius * math.cos(angle),
+          center.dy + radius * math.sin(angle),
+        ),
+        facetPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GemButtonPainter oldDelegate) {
+    return oldDelegate.shimmerProgress != shimmerProgress ||
+           oldDelegate.sparkleProgress != sparkleProgress;
   }
 } 
