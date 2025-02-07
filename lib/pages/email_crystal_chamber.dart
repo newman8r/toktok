@@ -25,11 +25,13 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
   late final AnimationController _dataStreamController;
   late final AnimationController _crystalController;
   late final AnimationController _energyController;
+  late final AnimationController _successController;
   
   final List<Offset> _crystalPoints = [];
   final _random = math.Random();
   bool _isSending = false;
-  String? _emailStatus;
+  bool _isSuccess = false;
+  String? _errorMessage;
   final TextEditingController _emailController = TextEditingController();
   
   @override
@@ -60,6 +62,11 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
     
+    _successController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    
     _generateCrystalPoints();
   }
   
@@ -79,7 +86,7 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
     
     setState(() {
       _isSending = true;
-      _emailStatus = 'Sending your crystal...';
+      _errorMessage = null;
     });
     HapticFeedback.mediumImpact();
     
@@ -88,17 +95,19 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
       gemUrl: widget.cloudinaryUrl,
     );
     
-    setState(() {
-      _isSending = false;
-      _emailStatus = success 
-        ? '✨ Crystal sent successfully!'
-        : '❌ Failed to send crystal';
-      
-      // Clear input on success
-      if (success) {
-        _emailController.clear();
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _isSending = false;
+        if (success) {
+          _isSuccess = true;
+          _successController.forward();
+          HapticFeedback.mediumImpact();
+        } else {
+          _errorMessage = 'Failed to send email. Please try again.';
+          HapticFeedback.heavyImpact();
+        }
+      });
+    }
   }
   
   @override
@@ -107,6 +116,7 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
     _dataStreamController.dispose();
     _crystalController.dispose();
     _energyController.dispose();
+    _successController.dispose();
     _emailController.dispose();
     super.dispose();
   }
@@ -176,71 +186,110 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
                   
                   const Spacer(),
                   
-                  // Email input and controls
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: caveShadow.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(brilliantCut),
-                        border: Border.all(
-                          color: sapphire.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
+                  if (_isSuccess) 
+                    // Success message
+                    FadeTransition(
+                      opacity: _successController,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (_emailStatus != null) ...[
-                            Text(
-                              _emailStatus!,
-                              style: crystalHeading.copyWith(
-                                fontSize: 18,
-                                color: sapphire,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          
-                          // Email input field
-                          TextField(
-                            controller: _emailController,
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: sapphire,
+                            size: 64,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Video sent successfully!',
                             style: crystalHeading.copyWith(
-                              fontSize: 16,
-                              color: silver,
+                              fontSize: 24,
+                              color: sapphire,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Enter email address',
-                              hintStyle: crystalHeading.copyWith(
-                                fontSize: 16,
-                                color: silver.withOpacity(0.5),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(brilliantCut / 2),
-                                borderSide: BorderSide(
-                                  color: sapphire.withOpacity(0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(brilliantCut / 2),
-                                borderSide: BorderSide(
-                                  color: sapphire,
-                                ),
-                              ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Your recipient will receive it shortly',
+                            style: gemText.copyWith(
+                              color: silver,
+                              fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: 32),
-                          
                           GemButton(
-                            text: _isSending ? 'Sending...' : 'Send Crystal Link',
-                            onPressed: _isSending ? () {} : _sendEmail,
+                            text: 'Back to Gallery',
+                            onPressed: () => Navigator.pop(context),
                             gemColor: sapphire,
+                            style: GemButtonStyle.secondary,
                             isAnimated: true,
                           ),
                         ],
                       ),
+                    )
+                  else
+                    // Email input and controls
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: caveShadow.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(brilliantCut),
+                          border: Border.all(
+                            color: sapphire.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_errorMessage != null) ...[
+                              Text(
+                                _errorMessage!,
+                                style: crystalHeading.copyWith(
+                                  fontSize: 18,
+                                  color: ruby,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            
+                            TextField(
+                              controller: _emailController,
+                              style: crystalHeading.copyWith(
+                                fontSize: 16,
+                                color: silver,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Enter email address',
+                                hintStyle: crystalHeading.copyWith(
+                                  fontSize: 16,
+                                  color: silver.withOpacity(0.5),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(brilliantCut / 2),
+                                  borderSide: BorderSide(
+                                    color: sapphire.withOpacity(0.3),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(brilliantCut / 2),
+                                  borderSide: BorderSide(
+                                    color: sapphire,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            
+                            GemButton(
+                              text: _isSending ? 'Sending...' : 'Send Crystal Link',
+                              onPressed: _isSending ? () {} : _sendEmail,
+                              gemColor: sapphire,
+                              isAnimated: true,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
                   
                   const Spacer(),
                 ],
