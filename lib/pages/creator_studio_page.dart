@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import '../services/auth_service.dart';
+import '../services/cloudinary_service.dart';
+import '../services/gem_service.dart';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'camera_page.dart';
 import 'gem_gallery_page.dart';
+import 'package:image_picker/image_picker.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -16,6 +20,7 @@ class CreatorStudioPage extends StatefulWidget {
 
 class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  final ImagePicker _picker = ImagePicker();
   late final TabController _tabController;
   late final AnimationController _shimmerController;
   final _formKey = GlobalKey<FormState>();
@@ -498,8 +503,8 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
                   label: 'Upload File',
                   color: sapphire,
                   onTap: () {
-                    // TODO: Implement file upload
                     HapticFeedback.mediumImpact();
+                    _pickFile();
                   },
                 ),
               ],
@@ -551,6 +556,62 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
     );
   }
 
+  Future<void> _pickFile() async {
+    try {
+      final XFile? mediaFile = await _picker.pickMedia(
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+      
+      if (mediaFile != null) {
+        // Show preview dialog with upload form
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => _UploadDialog(
+              mediaFile: mediaFile,
+              onUploadComplete: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                      const GemGalleryPage(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(-1.0, 0.0);
+                      const end = Offset.zero;
+                      const curve = Curves.easeInOutQuart;
+                      var tween = Tween(begin: begin, end: end)
+                          .chain(CurveTween(curve: curve));
+                      var offsetAnimation = animation.drive(tween);
+                      return SlideTransition(position: offsetAnimation, child: child);
+                    },
+                    transitionDuration: caveTransition,
+                  ),
+                  (route) => false,
+                );
+              },
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error selecting file: $e',
+              style: gemText.copyWith(color: Colors.white),
+            ),
+            backgroundColor: ruby.withOpacity(0.8),
+          ),
+        );
+      }
+      print('❌ Error picking file: $e');
+    }
+  }
+
   void _submitContent() {
     if (_formKey.currentState?.validate() ?? false) {
       // TODO: Implement content submission
@@ -598,5 +659,188 @@ class _CreatorStudioBackgroundPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CreatorStudioBackgroundPainter oldDelegate) {
     return oldDelegate.progress != progress;
+  }
+}
+
+class _UploadDialog extends StatefulWidget {
+  final XFile mediaFile;
+  final VoidCallback onUploadComplete;
+
+  const _UploadDialog({
+    required this.mediaFile,
+    required this.onUploadComplete,
+  });
+
+  @override
+  State<_UploadDialog> createState() => _UploadDialogState();
+}
+
+class _UploadDialogState extends State<_UploadDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _cloudinaryService = CloudinaryService();
+  final _gemService = GemService();
+  final _authService = AuthService();
+  bool _isUploading = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleUpload() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      HapticFeedback.heavyImpact();
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    try {
+      // Get current user
+      final user = _authService.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      // Upload to Cloudinary
+      final cloudinaryUrl = await _cloudinaryService.uploadVideo(
+        File(widget.mediaFile.path),
+      );
+
+      if (!mounted) return;
+      
+      if (cloudinaryUrl != null) {
+        // Create gem in Firestore
+        await _gemService.createGem(
+          userId: user.uid,
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          cloudinaryUrl: cloudinaryUrl,
+          cloudinaryPublicId: cloudinaryUrl.split('/').last.split('.').first,
+          bytes: await File(widget.mediaFile.path).length(),
+        );
+
+        if (!mounted) return;
+        widget.onUploadComplete();
+      } else {
+        throw Exception('Failed to upload to Cloudinary');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error uploading file: $e',
+            style: gemText.copyWith(color: Colors.white),
+          ),
+          backgroundColor: ruby.withOpacity(0.8),
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: deepCave,
+          borderRadius: BorderRadius.circular(emeraldCut),
+          border: Border.all(
+            color: amethyst.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: _isUploading
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: emerald),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Uploading...',
+                    style: gemText.copyWith(color: silver),
+                  ),
+                ],
+              )
+            : Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Upload Details',
+                      style: crystalHeading.copyWith(
+                        fontSize: 24,
+                        color: amethyst,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _titleController,
+                      style: gemText.copyWith(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Title',
+                        labelStyle: gemText.copyWith(color: silver),
+                        filled: true,
+                        fillColor: caveShadow.withOpacity(0.3),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(emeraldCut),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'Please enter a title';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      style: gemText.copyWith(color: Colors.white),
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Description',
+                        labelStyle: gemText.copyWith(color: silver),
+                        filled: true,
+                        fillColor: caveShadow.withOpacity(0.3),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(emeraldCut),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: gemText.copyWith(color: silver),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        GemButton(
+                          text: 'Upload',
+                          onPressed: _handleUpload,
+                          gemColor: emerald,
+                          isAnimated: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
   }
 } 
