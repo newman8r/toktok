@@ -32,6 +32,11 @@ dependencies:
   google_sign_in: ^6.2.1
   googleapis: ^12.0.0
   googleapis_auth: ^1.4.1
+  video_editor: ^3.0.0
+  helpers: ^1.2.3  # Required by video_editor
+  image_picker: ^1.0.7  # Required by video_editor
+  video_thumbnail: ^0.5.3
+  ffmpeg_kit_flutter_min_gpl: 6.0.3  # Using min_gpl version for video editing
 
 dev_dependencies:
   flutter_test:

@@ -16,10 +16,14 @@ class GemService {
     required String cloudinaryPublicId,
     required int bytes,
     List<String>? tags,
+    String? sourceGemId,
   }) async {
     try {
       print('🔍 Creating gem with userId: $userId');
       print('🔍 Cloudinary URL: $cloudinaryUrl');
+      if (sourceGemId != null) {
+        print('🔍 Creating as derivative of gem: $sourceGemId');
+      }
       
       final docRef = _firestore.collection(_collection).doc();
       
@@ -32,6 +36,7 @@ class GemService {
         cloudinaryPublicId: cloudinaryPublicId,
         bytes: bytes,
         tags: tags,
+        sourceGemId: sourceGemId,
       );
 
       print('🔍 Gem data before saving: ${gem.toMap()}');
@@ -186,6 +191,36 @@ class GemService {
     } catch (e) {
       print('❌ Error searching gems: $e');
       return [];
+    }
+  }
+
+  // Get all versions of a gem (original + derivatives)
+  Future<List<GemModel>> getGemVersions(String originalGemId) async {
+    try {
+      print('🔍 Fetching all versions of gem: $originalGemId');
+      
+      // Get the original gem first
+      final originalGem = await getGem(originalGemId);
+      if (originalGem == null) {
+        throw Exception('Original gem not found');
+      }
+      
+      // Get all derivatives
+      final querySnapshot = await _firestore
+          .collection(_collection)
+          .where('sourceGemId', isEqualTo: originalGemId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      final derivatives = querySnapshot.docs
+          .map((doc) => GemModel.fromMap(doc.data()))
+          .toList();
+      
+      // Combine original with derivatives
+      return [originalGem, ...derivatives];
+    } catch (e) {
+      print('❌ Error getting gem versions: $e');
+      rethrow;
     }
   }
 } 
