@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'email_crystal_chamber.dart';
 
 class PublishGemPage extends StatefulWidget {
   final String cloudinaryUrl;
@@ -346,16 +347,30 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
         ),
         const SizedBox(height: 16),
         _buildShareOption(
-          icon: Icons.camera_alt,
-          title: 'Share to Instagram',
-          subtitle: _isInstagramConnected 
-            ? 'Ready to share'
-            : 'Connect your Instagram account',
+          icon: Icons.email,
+          title: 'Share via Email',
+          subtitle: 'Send your gem through email',
           onTap: () {
-            // TODO: Implement Instagram sharing
             HapticFeedback.mediumImpact();
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => 
+                  EmailCrystalChamber(cloudinaryUrl: widget.cloudinaryUrl),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  const begin = Offset(1.0, 0.0);
+                  const end = Offset.zero;
+                  const curve = Curves.easeInOutQuart;
+                  var tween = Tween(begin: begin, end: end)
+                      .chain(CurveTween(curve: curve));
+                  var offsetAnimation = animation.drive(tween);
+                  return SlideTransition(position: offsetAnimation, child: child);
+                },
+                transitionDuration: const Duration(milliseconds: 500),
+              ),
+            );
           },
-          isConnected: _isInstagramConnected,
+          isConnected: false,
         ),
       ],
     );
