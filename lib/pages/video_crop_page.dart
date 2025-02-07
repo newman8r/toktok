@@ -17,11 +17,13 @@ import '../pages/gem_gallery_page.dart';
 class VideoCropPage extends StatefulWidget {
   final String videoUrl;
   final Function(String) onCropComplete;
+  final String? sourceGemId;
 
   const VideoCropPage({
     Key? key,
     required this.videoUrl,
     required this.onCropComplete,
+    this.sourceGemId,
   }) : super(key: key);
 
   @override
@@ -43,20 +45,18 @@ class _VideoCropPageState extends State<VideoCropPage> {
 
   Future<void> _initializeEditor() async {
     print('Starting video editor initialization...');
+    
     // Download video file from URL first
     final tempDir = await getTemporaryDirectory();
-    final tempPath = '${tempDir.path}/temp_video.mp4';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final tempPath = '${tempDir.path}/temp_video_$timestamp.mp4';
     print('Temp video path: $tempPath');
     
     final videoFile = File(tempPath);
-    if (!await videoFile.exists()) {
-      print('Downloading video from URL: ${widget.videoUrl}');
-      final response = await http.get(Uri.parse(widget.videoUrl));
-      await videoFile.writeAsBytes(response.bodyBytes);
-      print('Video downloaded successfully');
-    } else {
-      print('Using existing video file');
-    }
+    print('Downloading video from URL: ${widget.videoUrl}');
+    final response = await http.get(Uri.parse(widget.videoUrl));
+    await videoFile.writeAsBytes(response.bodyBytes);
+    print('Video downloaded successfully');
 
     print('Creating VideoEditorController...');
     _controller = VideoEditorController.file(
@@ -93,9 +93,13 @@ class _VideoCropPageState extends State<VideoCropPage> {
       print('Starting video export...');
       
       // Get the crop rect and rotation from the controller
-      final minCrop = _controller.minCrop;
-      final maxCrop = _controller.maxCrop;
+      final minCrop = _controller.cacheMinCrop;
+      final maxCrop = _controller.cacheMaxCrop;
       final rotation = _controller.rotation;
+      
+      print('Debug - Original crop values:');
+      print('minCrop: $minCrop');
+      print('maxCrop: $maxCrop');
       
       // Get trim values using the correct properties
       final startTrim = _controller.minTrim;
@@ -116,12 +120,33 @@ class _VideoCropPageState extends State<VideoCropPage> {
         final videoWidth = _controller.video.value.size.width;
         final videoHeight = _controller.video.value.size.height;
         
+        print('Debug - Video dimensions:');
+        print('Width: $videoWidth');
+        print('Height: $videoHeight');
+        
         final x = (minCrop.dx * videoWidth).round();
         final y = (minCrop.dy * videoHeight).round();
         final width = ((maxCrop.dx - minCrop.dx) * videoWidth).round();
         final height = ((maxCrop.dy - minCrop.dy) * videoHeight).round();
         
-        transformations.add('c_crop,w_$width,h_$height,x_$x,y_$y');
+        print('Debug - Calculated crop parameters:');
+        print('x: $x');
+        print('y: $y');
+        print('width: $width');
+        print('height: $height');
+        
+        // Ensure crop parameters are valid
+        if (width > 0 && height > 0 && 
+            x >= 0 && y >= 0 && 
+            x + width <= videoWidth && 
+            y + height <= videoHeight) {
+          transformations.add('c_crop,w_$width,h_$height,x_$x,y_$y');
+          print('Debug - Added crop transformation: c_crop,w_$width,h_$height,x_$x,y_$y');
+        } else {
+          print('Debug - Invalid crop parameters, skipping crop transformation');
+        }
+      } else {
+        print('Debug - No crop needed (full frame)');
       }
       
       // Add rotation if needed
@@ -178,6 +203,7 @@ class _VideoCropPageState extends State<VideoCropPage> {
           cloudinaryPublicId: publicId,
           bytes: await File(_controller.file.path).length(),
           tags: ['crystal_lens'],
+          sourceGemId: widget.sourceGemId,
         );
 
         if (!mounted) return;
@@ -308,35 +334,32 @@ class _VideoCropPageState extends State<VideoCropPage> {
       child: Column(
         children: [
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Stack(
-                    children: [
-                      CoverViewer(controller: _controller),
-                      Center(
-                        child: CropGridViewer.preview(controller: _controller),
-                      ),
-                    ],
+            child: Container(
+              margin: const EdgeInsets.all(20),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CoverViewer(controller: _controller),
+                  CropGridViewer.edit(
+                    controller: _controller,
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
                   ),
-                ),
-                // Video play/pause button
-                if (_controller.initialized && !_controller.isPlaying)
-                  GestureDetector(
-                    onTap: () => _controller.video.play(),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
+                  // Video play/pause button
+                  if (_controller.initialized && !_controller.isPlaying)
+                    GestureDetector(
+                      onTap: () => _controller.video.play(),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.play_arrow, color: deepCave),
                       ),
-                      child: Icon(Icons.play_arrow, color: deepCave),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           _buildCropActions(),
@@ -483,15 +506,27 @@ class _VideoCropPageState extends State<VideoCropPage> {
   }
 
   Widget _buildAspectRatioButton(String label, double? ratio) {
-    return TextButton(
-      onPressed: () {
-        _controller.preferredCropAspectRatio = ratio;
-        setState(() {});
-      },
-      child: Text(
-        label,
-        style: gemText.copyWith(
-          color: _controller.preferredCropAspectRatio == ratio ? amethyst : silver,
+    final isSelected = _controller.preferredCropAspectRatio == ratio;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected ? amethyst : Colors.transparent,
+          width: 2,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: TextButton(
+        onPressed: () {
+          setState(() {
+            _controller.preferredCropAspectRatio = ratio;
+          });
+        },
+        child: Text(
+          label,
+          style: gemText.copyWith(
+            color: isSelected ? amethyst : silver,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
       ),
     );

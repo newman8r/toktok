@@ -221,10 +221,10 @@ class CloudinaryService {
   String getThumbnailUrl(String videoUrl) {
     // Convert video URL to thumbnail URL
     // Example: https://res.cloudinary.com/demo/video/upload/v1234/sample.mp4
-    // becomes: https://res.cloudinary.com/demo/video/upload/c_thumb,w_400,g_face/v1234/sample.jpg
+    // becomes: https://res.cloudinary.com/demo/video/upload/w_400,h_400,c_fill,g_auto/v1234/sample.jpg
     return videoUrl.replaceAll(
       RegExp(r'\/upload\/'),
-      '/upload/c_thumb,w_400,g_face/'
+      '/upload/w_400,h_400,c_fill,g_auto/'
     ).replaceAll(RegExp(r'\.[^.]+$'), '.jpg');
   }
 

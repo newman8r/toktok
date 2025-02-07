@@ -388,8 +388,9 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) => 
                 GemExplorerPage(
-                  recordedVideo: File(''), // TODO: Handle this better
+                  recordedVideo: File(''), // Required but not used for existing gems
                   cloudinaryUrl: gem.cloudinaryUrl,
+                  gemId: gem.id,  // Pass the gem ID to track which gem we're editing
                 ),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 const begin = Offset(1.0, 0.0);

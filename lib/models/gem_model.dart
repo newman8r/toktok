@@ -10,6 +10,7 @@ class GemModel {
   final List<String> likes;
   final List<String> tags;
   final bool isPublic;
+  final String? sourceGemId;
 
   GemModel({
     required this.id,
@@ -23,6 +24,7 @@ class GemModel {
     List<String>? likes,
     List<String>? tags,
     this.isPublic = true,
+    this.sourceGemId,
   }) : 
     this.createdAt = createdAt ?? DateTime.now(),
     this.likes = likes ?? [],
@@ -41,6 +43,7 @@ class GemModel {
       'likes': likes,
       'tags': tags,
       'isPublic': isPublic,
+      'sourceGemId': sourceGemId,
     };
   }
 
@@ -57,6 +60,7 @@ class GemModel {
       likes: List<String>.from(map['likes'] ?? []),
       tags: List<String>.from(map['tags'] ?? []),
       isPublic: map['isPublic'] as bool? ?? true,
+      sourceGemId: map['sourceGemId'] as String?,
     );
   }
 
@@ -72,6 +76,7 @@ class GemModel {
     List<String>? likes,
     List<String>? tags,
     bool? isPublic,
+    String? sourceGemId,
   }) {
     return GemModel(
       id: id ?? this.id,
@@ -85,6 +90,7 @@ class GemModel {
       likes: likes ?? this.likes,
       tags: tags ?? this.tags,
       isPublic: isPublic ?? this.isPublic,
+      sourceGemId: sourceGemId ?? this.sourceGemId,
     );
   }
 } 

@@ -13,11 +13,13 @@ import 'package:flutter/rendering.dart';
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
   final String? cloudinaryUrl;  // Optional for now as we transition
+  final String? gemId;  // ID of the current gem being edited
 
   const GemExplorerPage({
     super.key,
     required this.recordedVideo,
     this.cloudinaryUrl,  // Make it optional for backward compatibility
+    this.gemId,
   });
 
   @override
@@ -315,6 +317,15 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       // Add a slight delay to ensure navigation is complete
       await Future.delayed(const Duration(milliseconds: 100));
       
+      // Get the current video URL directly from the video controller
+      final videoUrlToEdit = _videoController.dataSource;
+      if (videoUrlToEdit == null) {
+        print('Error: No video URL available from controller');
+        return;
+      }
+      
+      print('Opening crop view with video URL: $videoUrlToEdit');
+      
       // Show the crystal lens cropper with glass effect overlay
       await showGeneralDialog(
         context: context,
@@ -339,7 +350,8 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               FadeTransition(
                 opacity: animation,
                 child: VideoCropPage(
-                  videoUrl: cloudinaryUrl ?? '',
+                  videoUrl: videoUrlToEdit,
+                  sourceGemId: widget.gemId,
                   onCropComplete: (String newVideoUrl) {
                     // Update the content grid with the new video
                     final key = '${_currentOffset.dx.toInt()},${_currentOffset.dy.toInt()}';
@@ -348,7 +360,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                         'type': 'video',
                         'content': widget.recordedVideo,
                         'cloudinaryUrl': newVideoUrl,
-                        'isEdited': true, // Mark as edited for visual indicator
+                        'isEdited': true,
                       };
                     });
                   },
