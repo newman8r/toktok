@@ -9,16 +9,16 @@ enum GemButtonStyle {
 }
 
 class GemButton extends StatelessWidget {
-  final VoidCallback onPressed;
   final String text;
+  final VoidCallback? onPressed;
   final Color gemColor;
   final bool isAnimated;
   final GemButtonStyle style;
 
   const GemButton({
     super.key,
-    required this.onPressed,
     required this.text,
+    required this.onPressed,
     this.gemColor = emerald,
     this.isAnimated = false,
     this.style = GemButtonStyle.primary,
@@ -26,53 +26,27 @@ class GemButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(emeraldCut),
-        gradient: style == GemButtonStyle.primary
-            ? LinearGradient(
-                colors: [
-                  gemColor,
-                  gemColor.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        border: Border.all(
-          color: style == GemButtonStyle.primary
-              ? gemColor.withOpacity(0.3)
-              : gemColor,
-          width: style == GemButtonStyle.primary ? 1 : 2,
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor: onPressed != null ? gemColor.withOpacity(0.2) : caveShadow.withOpacity(0.1),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24,
+          vertical: 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(emeraldCut),
+          side: BorderSide(
+            color: onPressed != null ? gemColor.withOpacity(0.5) : silver.withOpacity(0.2),
+            width: 1,
+          ),
         ),
       ),
-      child: Material(
-        color: style == GemButtonStyle.primary
-            ? Colors.transparent
-            : deepCave,
-        borderRadius: BorderRadius.circular(emeraldCut),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(emeraldCut),
-          splashColor: gemColor.withOpacity(0.3),
-          highlightColor: gemColor.withOpacity(0.1),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 32,
-              vertical: 16,
-            ),
-            child: Text(
-              text,
-              style: gemText.copyWith(
-                color: style == GemButtonStyle.primary
-                    ? Colors.white
-                    : gemColor,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+      child: Text(
+        text,
+        style: gemText.copyWith(
+          color: onPressed != null ? gemColor : silver.withOpacity(0.5),
+          fontSize: 16,
         ),
       ),
     );
