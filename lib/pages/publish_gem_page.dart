@@ -293,9 +293,6 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
                         // Shareable link
                         _buildShareableLink(),
                         const SizedBox(height: 32),
-
-                        // Action buttons
-                        _buildActionButtons(),
                       ],
                     ),
                   ),
@@ -599,33 +596,6 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
                 ),
               ),
             ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: GemButton(
-            text: 'Cancel',
-            onPressed: () => Navigator.pop(context),
-            gemColor: ruby,
-            style: GemButtonStyle.secondary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: GemButton(
-            text: 'Publish Gem',
-            onPressed: () {
-              // TODO: Implement publish
-              HapticFeedback.mediumImpact();
-            },
-            gemColor: emerald,
-            isAnimated: true,
           ),
         ),
       ],
