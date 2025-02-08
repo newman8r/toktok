@@ -25,6 +25,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'email_crystal_chamber.dart';
 import '../services/cloudinary_service.dart';
 import '../services/gem_service.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class PublishGemPage extends StatefulWidget {
   final String cloudinaryUrl;
@@ -585,9 +587,27 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
                   ),
                   const SizedBox(width: 16),
                   GestureDetector(
-                    onTap: () {
-                      // TODO: Implement copy to clipboard
-                      HapticFeedback.mediumImpact();
+                    onTap: () async {
+                      if (_shareableLink != null && _shareableLink!.isNotEmpty) {
+                        await Clipboard.setData(ClipboardData(text: _shareableLink!));
+                        HapticFeedback.mediumImpact();
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Link copied to clipboard! ✨',
+                                style: gemText.copyWith(color: Colors.white),
+                              ),
+                              backgroundColor: emerald.withOpacity(0.8),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(emeraldCut),
+                              ),
+                            ),
+                          );
+                        }
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(8),
