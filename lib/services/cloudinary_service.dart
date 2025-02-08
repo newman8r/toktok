@@ -232,10 +232,9 @@ class CloudinaryService {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-      // Parameters to sign
+      // Parameters to sign (in alphabetical order)
       final paramsToSign = {
         'public_id': publicId,
-        'resource_type': 'video',
         'timestamp': timestamp.toString(),
         'type': 'upload',
       };
@@ -248,24 +247,23 @@ class CloudinaryService {
         url,
         body: {
           'public_id': publicId,
-          'resource_type': 'video',
-          'type': 'upload',
           'timestamp': timestamp.toString(),
           'api_key': _apiKey,
           'signature': signature,
+          'type': 'upload',
         },
       );
 
       if (response.statusCode == 200) {
-        print('Video deleted successfully');
+        print('✨ Video deleted successfully');
         return true;
       } else {
         print('Failed to delete video: ${response.body}');
-        return false;
+        throw Exception('Failed to delete video from Cloudinary');
       }
     } catch (e) {
       print('Error deleting from Cloudinary: $e');
-      return false;
+      rethrow;
     }
   }
 } 
