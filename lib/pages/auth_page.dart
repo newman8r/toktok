@@ -313,12 +313,13 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                               const SizedBox(height: 24),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Already have an account? ',
+                                    'Already have an account?',
                                     style: gemText.copyWith(
                                       color: silver.withOpacity(0.7),
-                                      fontSize: 14,
+                                      fontSize: 13,
                                     ),
                                   ),
                                   TextButton(
@@ -342,11 +343,16 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                                         ),
                                       );
                                     },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
                                     child: Text(
                                       'Log In',
                                       style: gemText.copyWith(
                                         color: amethyst,
-                                        fontSize: 14,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
