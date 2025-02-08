@@ -390,8 +390,32 @@ class _VideoCropPageState extends State<VideoCropPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _controller.initialized
-                  ? CoverViewer(
-                      controller: _controller,
+                  ? Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CoverViewer(
+                          controller: _controller,
+                        ),
+                        Center(
+                          child: CropGridViewer.preview(
+                            controller: _controller,
+                          ),
+                        ),
+                        // Video play/pause button
+                        if (!_controller.isPlaying)
+                          GestureDetector(
+                            onTap: () => _controller.video.play(),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.play_arrow, color: deepCave),
+                            ),
+                          ),
+                      ],
                     )
                   : const Center(child: CircularProgressIndicator()),
             ),

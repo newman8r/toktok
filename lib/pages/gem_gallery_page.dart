@@ -745,6 +745,26 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
       ],
     );
   }
+
+  Widget _buildGemGrid() {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16.0,
+        crossAxisSpacing: 16.0,
+        childAspectRatio: 0.8,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index < _filteredGems.length) {
+            return _buildGemCard(_filteredGems[index]);
+          }
+          return null;
+        },
+        childCount: _filteredGems.length,
+      ),
+    );
+  }
 }
 
 class _CrystalBackgroundPainter extends CustomPainter {
