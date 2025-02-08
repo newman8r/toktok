@@ -92,6 +92,12 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     'bottomLeft': {'offset': const Offset(-1, 0.5), 'angle': 2 * math.pi / 3},// Content slides up-right
   };
 
+  late AnimationController _trashWobbleController;
+  late AnimationController _flyController;
+  late AnimationController _fumeController;
+  final List<_TrashFly> _flies = [];
+  final List<_TrashFume> _fumes = [];
+
   @override
   void initState() {
     super.initState();
@@ -143,6 +149,44 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       'cloudinaryUrl': cloudinaryUrl,
     };
     _generateSurroundingContent(const Offset(0, 0));
+
+    // Initialize trash animation controllers
+    _trashWobbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _flyController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
+    _fumeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat();
+
+    // Create flies with random positions
+    for (int i = 0; i < 3; i++) {
+      _flies.add(_TrashFly(
+        baseOffset: Offset(
+          math.Random().nextDouble() * 20 - 10,
+          math.Random().nextDouble() * 20 - 10,
+        ),
+        phase: math.Random().nextDouble() * math.pi * 2,
+      ));
+    }
+
+    // Create fumes with random properties
+    for (int i = 0; i < 4; i++) {
+      _fumes.add(_TrashFume(
+        baseOffset: Offset(
+          math.Random().nextDouble() * 16 - 8,
+          -10 - math.Random().nextDouble() * 10,
+        ),
+        phase: math.Random().nextDouble() * math.pi * 2,
+      ));
+    }
   }
 
   @override
@@ -150,6 +194,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     _videoController.dispose();
     _shimmerController.dispose();
     _slideController?.dispose();
+    _trashWobbleController.dispose();
+    _flyController.dispose();
+    _fumeController.dispose();
     super.dispose();
   }
 
@@ -475,6 +522,113 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     });
   }
 
+  Widget _buildTrashButton() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: GestureDetector(
+        onTapDown: (_) {
+          _trashWobbleController.forward(from: 0);
+          HapticFeedback.mediumImpact();
+        },
+        onTapUp: (_) async {
+          // Show delete confirmation dialog (to be implemented)
+        },
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: ruby.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(emeraldCut),
+            border: Border.all(
+              color: ruby.withOpacity(0.3),
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Fumes
+              ...List.generate(_fumes.length, (index) {
+                return AnimatedBuilder(
+                  animation: _fumeController,
+                  builder: (context, child) {
+                    final fume = _fumes[index];
+                    final progress = _fumeController.value;
+                    final yOffset = fume.baseOffset.dy - (progress * 20);
+                    final xOffset = fume.baseOffset.dx + 
+                      math.sin(progress * math.pi * 2 + fume.phase) * 4;
+                    final opacity = (1 - progress) * 0.6;
+
+                    return Positioned(
+                      left: 20 + xOffset,
+                      top: 20 + yOffset,
+                      child: Transform.scale(
+                        scale: 0.8 + progress * 0.4,
+                        child: Opacity(
+                          opacity: opacity,
+                          child: Text(
+                            '~',
+                            style: TextStyle(
+                              color: ruby.withOpacity(0.6),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+
+              // Flies
+              ...List.generate(_flies.length, (index) {
+                return AnimatedBuilder(
+                  animation: _flyController,
+                  builder: (context, child) {
+                    final fly = _flies[index];
+                    final progress = _flyController.value;
+                    final xOffset = fly.baseOffset.dx + 
+                      math.sin(progress * math.pi * 4 + fly.phase) * 8;
+                    final yOffset = fly.baseOffset.dy + 
+                      math.cos(progress * math.pi * 2 + fly.phase) * 6;
+
+                    return Positioned(
+                      left: 20 + xOffset,
+                      top: 20 + yOffset,
+                      child: Text(
+                        '•',
+                        style: TextStyle(
+                          color: ruby.withOpacity(0.8),
+                          fontSize: 8,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+
+              // Trash can
+              Center(
+                child: AnimatedBuilder(
+                  animation: _trashWobbleController,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: math.sin(_trashWobbleController.value * math.pi * 2) * 0.1,
+                      child: Icon(
+                        Icons.delete_forever,
+                        color: ruby.withOpacity(0.8),
+                        size: 24,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_errorMessage != null) {
@@ -494,6 +648,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
           style: crystalHeading.copyWith(fontSize: 20),
         ),
         actions: [
+          _buildTrashButton(),
           if (widget.gemId != null) // Only show edit button for existing gems
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
@@ -791,4 +946,24 @@ class _NavigationHexagonPainter extends CustomPainter {
   bool shouldRepaint(_NavigationHexagonPainter oldDelegate) {
     return oldDelegate.progress != progress || oldDelegate.hoveredEdge != hoveredEdge;
   }
+}
+
+class _TrashFly {
+  final Offset baseOffset;
+  final double phase;
+
+  _TrashFly({
+    required this.baseOffset,
+    required this.phase,
+  });
+}
+
+class _TrashFume {
+  final Offset baseOffset;
+  final double phase;
+
+  _TrashFume({
+    required this.baseOffset,
+    required this.phase,
+  });
 } 
