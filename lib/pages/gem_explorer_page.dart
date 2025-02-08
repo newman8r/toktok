@@ -28,6 +28,7 @@ import 'gem_meta_edit_page.dart';
 import '../services/gem_service.dart';
 import '../services/cloudinary_service.dart';
 import 'gem_gallery_page.dart';
+import 'package:just_audio/just_audio.dart';
 
 // Helper classes for animations and UI
 class _TrashFly {
@@ -259,6 +260,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   late VideoPlayerController _videoController;
   late AnimationController _shimmerController;
   final GemService _gemService = GemService();
+  final _audioPlayer = AudioPlayer();
   String? _errorMessage;
   bool _isPlaying = false;
   
@@ -419,6 +421,19 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
         size: 10 + math.Random().nextDouble() * 20,
       ));
     }
+
+    // Initialize audio player
+    _initAudioPlayer();
+  }
+
+  Future<void> _initAudioPlayer() async {
+    try {
+      await _audioPlayer.setAsset('assets/audio/crystal_delete.mp3');
+      await _audioPlayer.setLoopMode(LoopMode.one);  // Loop the audio
+      await _audioPlayer.setVolume(1.0);  // Set volume to 62.5% (25% louder than before)
+    } catch (e) {
+      print('❌ Error initializing audio player: $e');
+    }
   }
 
   @override
@@ -430,6 +445,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     _flyController.dispose();
     _fumeController.dispose();
     _shatterController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -772,6 +788,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             barrierColor: deepCave.withOpacity(0.8),
             transitionDuration: const Duration(milliseconds: 300),
             pageBuilder: (context, animation, secondaryAnimation) {
+              // Start playing the audio
+              _audioPlayer.play();
+              
               return Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 32),
@@ -932,21 +951,10 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                 ),
               );
             },
-            transitionBuilder: (context, animation, secondaryAnimation, child) {
-              return ScaleTransition(
-                scale: Tween<double>(begin: 0.9, end: 1.0).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutBack,
-                  ),
-                ),
-                child: FadeTransition(
-                  opacity: animation,
-                  child: child,
-                ),
-              );
-            },
-          );
+          ).then((_) {
+            // Stop the audio when dialog is closed
+            _audioPlayer.stop();
+          });
         },
         child: Container(
           width: 40,
