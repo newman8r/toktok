@@ -44,7 +44,6 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
   
   bool _isInstagramConnected = false;
   String? _shareableLink;
-  bool _isPublic = true;
   bool _isSaving = false;
   bool _showSuccessParticles = false;
   late final AnimationController _particleController;
@@ -286,10 +285,6 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
                         _buildShareOptions(),
                         const SizedBox(height: 32),
 
-                        // Visibility toggle
-                        _buildVisibilityToggle(),
-                        const SizedBox(height: 32),
-
                         // Shareable link
                         _buildShareableLink(),
                         const SizedBox(height: 32),
@@ -481,61 +476,6 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
               painter: _ParticlesPainter(particles: _particles),
               size: Size.infinite,
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVisibilityToggle() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: caveShadow.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(emeraldCut),
-        border: Border.all(
-          color: amethyst.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            _isPublic ? Icons.public : Icons.lock,
-            color: _isPublic ? emerald : ruby,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Visibility',
-                  style: gemText.copyWith(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  _isPublic 
-                    ? 'Anyone with the link can view'
-                    : 'Only you can view',
-                  style: gemText.copyWith(
-                    color: silver,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: _isPublic,
-            onChanged: (value) {
-              setState(() => _isPublic = value);
-              HapticFeedback.lightImpact();
-            },
-            activeColor: emerald,
-            activeTrackColor: emerald.withOpacity(0.3),
-          ),
         ],
       ),
     );
