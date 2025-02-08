@@ -309,8 +309,23 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
   }
 
   Widget _buildVideoPreview() {
+    if (!_videoController.value.isInitialized) {
+      return const AspectRatio(
+        aspectRatio: 9 / 16,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Calculate the correct aspect ratio based on rotation
+    final isRotated = _videoController.value.rotationCorrection % 180 != 0;
+    final videoWidth = _videoController.value.size.width;
+    final videoHeight = _videoController.value.size.height;
+    final aspectRatio = isRotated 
+        ? videoHeight / videoWidth 
+        : videoWidth / videoHeight;
+
     return AspectRatio(
-      aspectRatio: 9 / 16,
+      aspectRatio: aspectRatio,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(emeraldCut),
@@ -327,7 +342,10 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
           child: Stack(
             fit: StackFit.expand,
             children: [
-              VideoPlayer(_videoController),
+              Transform.rotate(
+                angle: _videoController.value.rotationCorrection * math.pi / 180,
+                child: VideoPlayer(_videoController),
+              ),
               // Crystal overlay
               AnimatedBuilder(
                 animation: _shimmerController,
