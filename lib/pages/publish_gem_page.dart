@@ -23,6 +23,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'email_crystal_chamber.dart';
+import '../services/cloudinary_service.dart';
+import '../services/gem_service.dart';
 
 class PublishGemPage extends StatefulWidget {
   final String cloudinaryUrl;
@@ -48,6 +50,9 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
   bool _showSuccessParticles = false;
   late final AnimationController _particleController;
   final List<_Particle> _particles = [];
+  final _cloudinaryService = CloudinaryService();
+  final _gemService = GemService();
+  bool _isRegeneratingUrl = false;
 
   @override
   void initState() {
@@ -182,6 +187,65 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _regenerateUrl() async {
+    try {
+      setState(() => _isRegeneratingUrl = true);
+
+      // Download the video first
+      final response = await http.get(Uri.parse(widget.cloudinaryUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download video');
+      }
+
+      // Create a temporary file
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.mp4');
+      await tempFile.writeAsBytes(response.bodyBytes);
+
+      // Upload with new public ID
+      final newUrl = await _cloudinaryService.uploadVideo(tempFile);
+      if (newUrl == null) {
+        throw Exception('Failed to upload video');
+      }
+
+      // Extract the old public ID from the URL
+      final oldPublicId = widget.cloudinaryUrl.split('/').last.split('.').first;
+
+      // Delete the old video
+      await _cloudinaryService.deleteVideo(oldPublicId);
+
+      // Update the shareable link
+      setState(() {
+        _shareableLink = '$newUrl?player=true';
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✨ Video URL regenerated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+    } catch (e) {
+      print('❌ Error regenerating URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to regenerate URL: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRegeneratingUrl = false);
       }
     }
   }
@@ -503,37 +567,82 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
               width: 1,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  _shareableLink ?? '',
-                  style: gemText.copyWith(
-                    color: silver,
-                    fontSize: 14,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _shareableLink ?? '',
+                      style: gemText.copyWith(
+                        color: silver,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () {
+                      // TODO: Implement copy to clipboard
+                      HapticFeedback.mediumImpact();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: deepCave.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(emeraldCut / 2),
+                      ),
+                      child: const Icon(
+                        Icons.copy,
+                        color: silver,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(color: silver),
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _isRegeneratingUrl ? null : _regenerateUrl,
+                  icon: _isRegeneratingUrl 
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh, size: 16),
+                  label: Text(_isRegeneratingUrl ? 'Regenerating...' : 'Regenerate URL'),
+                  style: TextButton.styleFrom(
+                    backgroundColor: ruby.withOpacity(0.1),
+                    foregroundColor: ruby,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(emeraldCut),
+                      side: BorderSide(
+                        color: ruby.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 16),
-              GestureDetector(
-                onTap: () {
-                  // TODO: Implement copy to clipboard
-                  HapticFeedback.mediumImpact();
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: deepCave.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(emeraldCut / 2),
-                  ),
-                  child: const Icon(
-                    Icons.copy,
-                    color: silver,
-                    size: 20,
-                  ),
+              const SizedBox(height: 12),
+              Text(
+                'Note: Regenerating the URL will invalidate any previously shared links.',
+                style: gemText.copyWith(
+                  color: ruby.withOpacity(0.7),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
