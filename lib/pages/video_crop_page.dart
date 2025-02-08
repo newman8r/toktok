@@ -20,12 +20,14 @@ import 'package:http/http.dart' as http;
 import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
 import 'dart:io';
+import 'dart:ui' as ui;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import '../services/cloudinary_service.dart';
 import '../services/auth_service.dart';
 import '../services/gem_service.dart';
 import '../pages/gem_gallery_page.dart';
+import '../pages/gem_meta_edit_page.dart';
 
 class VideoCropPage extends StatefulWidget {
   final String videoUrl;
@@ -94,6 +96,112 @@ class _VideoCropPageState extends State<VideoCropPage> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<bool?> _showMetadataPromptModal(String gemId) async {
+    HapticFeedback.mediumImpact();
+    
+    return showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: AlertDialog(
+            backgroundColor: deepCave.withOpacity(0.95),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(emeraldCut),
+              side: BorderSide(
+                color: amethyst.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            title: Column(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  color: gold,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Your Gem is Ready! ✨',
+                  style: crystalHeading.copyWith(
+                    fontSize: 24,
+                    color: amethyst,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Would you like to add a title, description, and tags to your creation? 💎',
+                  style: gemText.copyWith(
+                    color: silver,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: emerald,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(emeraldCut),
+                        ),
+                      ),
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.of(context).pop(true);
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.edit, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Add Details ✍️',
+                            style: gemText.copyWith(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.of(context).pop(false);
+                      },
+                      child: Text(
+                        'No Thanks 👋',
+                        style: gemText.copyWith(
+                          color: silver.withOpacity(0.7),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _exportVideo() async {
@@ -221,11 +329,28 @@ class _VideoCropPageState extends State<VideoCropPage> {
 
         if (!mounted) return;
 
-        // Navigate to gem gallery
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const GemGalleryPage()),
-          (route) => false, // Remove all previous routes
-        );
+        setState(() => _isExporting = false);
+
+        // Show metadata prompt
+        final bool shouldEditMetadata = await _showMetadataPromptModal(gem.id) ?? false;
+
+        if (shouldEditMetadata && mounted) {
+          // Navigate to metadata edit page
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => GemMetaEditPage(
+                gemId: gem.id,
+                gem: gem,
+              ),
+            ),
+          );
+        } else if (mounted) {
+          // Navigate to gem gallery
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const GemGalleryPage()),
+            (route) => false,
+          );
+        }
       } else {
         print('Upload failed: null URL returned');
         setState(() {
@@ -237,9 +362,8 @@ class _VideoCropPageState extends State<VideoCropPage> {
       print('Stack trace: $stackTrace');
       setState(() {
         _exportText = 'Export failed: $e';
+        _isExporting = false;
       });
-    } finally {
-      setState(() => _isExporting = false);
     }
   }
 
