@@ -263,6 +263,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   final _audioPlayer = AudioPlayer();
   String? _errorMessage;
   bool _isPlaying = false;
+  bool _isMuted = false;  // Add mute state
   
   // Track current position and content
   Offset _currentOffset = Offset.zero;
@@ -330,6 +331,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
               _videoController.play();
               _videoController.setLooping(true);
+              _videoController.setVolume(1.0);  // Set initial volume
               print('Video initialized and playing');
             });
           }
@@ -346,6 +348,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
               _videoController.play();
               _videoController.setLooping(true);
+              _videoController.setVolume(1.0);  // Set initial volume
               print('Video initialized and playing');
             });
           }
@@ -1052,6 +1055,15 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     );
   }
 
+  // Add method to toggle mute state
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+      _videoController.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+    HapticFeedback.mediumImpact();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_errorMessage != null) {
@@ -1073,6 +1085,14 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               style: crystalHeading.copyWith(fontSize: 20),
             ),
             actions: [
+              // Add mute button
+              IconButton(
+                icon: Icon(
+                  _isMuted ? Icons.volume_off : Icons.volume_up,
+                  color: _isMuted ? ruby : emerald,
+                ),
+                onPressed: _toggleMute,
+              ),
               _buildTrashButton(),
               if (widget.gemId != null) // Only show edit button for existing gems
                 Padding(
