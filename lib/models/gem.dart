@@ -1,4 +1,4 @@
-class GemModel {
+class Gem {
   final String id;
   final String userId;
   final String title;
@@ -7,11 +7,10 @@ class GemModel {
   final String cloudinaryPublicId;
   final int bytes;
   final List<String> tags;
-  final List<String> likes;
   final DateTime createdAt;
   final String? sourceGemId;
 
-  GemModel({
+  Gem({
     required this.id,
     required this.userId,
     required this.title,
@@ -20,7 +19,6 @@ class GemModel {
     required this.cloudinaryPublicId,
     required this.bytes,
     this.tags = const [],
-    this.likes = const [],
     required this.createdAt,
     this.sourceGemId,
   });
@@ -40,15 +38,14 @@ class GemModel {
       'cloudinaryPublicId': cloudinaryPublicId,
       'bytes': bytes,
       'tags': tags,
-      'likes': likes,
       'createdAt': createdAt.toIso8601String(),
       'sourceGemId': sourceGemId,
     };
   }
 
-  factory GemModel.fromMap(Map<String, dynamic> map) {
-    return GemModel(
-      id: map['id'] as String,
+  factory Gem.fromMap(Map<String, dynamic> map, String id) {
+    return Gem(
+      id: id,
       userId: map['userId'] as String,
       title: map['title'] as String,
       description: map['description'] as String,
@@ -56,37 +53,8 @@ class GemModel {
       cloudinaryPublicId: map['cloudinaryPublicId'] as String,
       bytes: map['bytes'] as int,
       tags: List<String>.from(map['tags'] ?? []),
-      likes: List<String>.from(map['likes'] ?? []),
       createdAt: DateTime.parse(map['createdAt'] as String),
       sourceGemId: map['sourceGemId'] as String?,
-    );
-  }
-
-  GemModel copyWith({
-    String? id,
-    String? userId,
-    String? title,
-    String? description,
-    String? cloudinaryUrl,
-    String? cloudinaryPublicId,
-    int? bytes,
-    List<String>? tags,
-    List<String>? likes,
-    DateTime? createdAt,
-    String? sourceGemId,
-  }) {
-    return GemModel(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      cloudinaryUrl: cloudinaryUrl ?? this.cloudinaryUrl,
-      cloudinaryPublicId: cloudinaryPublicId ?? this.cloudinaryPublicId,
-      bytes: bytes ?? this.bytes,
-      tags: tags ?? this.tags,
-      likes: likes ?? this.likes,
-      createdAt: createdAt ?? this.createdAt,
-      sourceGemId: sourceGemId ?? this.sourceGemId,
     );
   }
 } 

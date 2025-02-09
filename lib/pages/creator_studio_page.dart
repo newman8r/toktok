@@ -25,6 +25,7 @@ import 'dart:math' as math;
 import 'camera_page.dart';
 import 'gem_gallery_page.dart';
 import 'package:image_picker/image_picker.dart';
+import 'clip_combiner_page.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -346,7 +347,7 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
 
   Widget _buildUploadSection() {
     return Container(
-      height: 200,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: caveShadow.withOpacity(0.3),
         borderRadius: BorderRadius.circular(emeraldCut),
@@ -356,48 +357,69 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
         ),
       ),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Wrap(
+          spacing: 24,
+          runSpacing: 24,
+          alignment: WrapAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildUploadOption(
-                  icon: Icons.videocam,
-                  label: 'Record Video',
-                  color: emerald,
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => 
-                          const CameraPage(),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          const begin = Offset(1.0, 0.0);
-                          const end = Offset.zero;
-                          const curve = Curves.easeInOutQuart;
-                          var tween = Tween(begin: begin, end: end)
-                              .chain(CurveTween(curve: curve));
-                          var offsetAnimation = animation.drive(tween);
-                          return SlideTransition(position: offsetAnimation, child: child);
-                        },
-                        transitionDuration: caveTransition,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 32),
-                _buildUploadOption(
-                  icon: Icons.upload_file,
-                  label: 'Upload File',
-                  color: sapphire,
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    _pickFile();
-                  },
-                ),
-              ],
+            _buildUploadOption(
+              icon: Icons.videocam,
+              label: 'Record Video',
+              color: emerald,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                      const CameraPage(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(1.0, 0.0);
+                      const end = Offset.zero;
+                      const curve = Curves.easeInOutQuart;
+                      var tween = Tween(begin: begin, end: end)
+                          .chain(CurveTween(curve: curve));
+                      var offsetAnimation = animation.drive(tween);
+                      return SlideTransition(position: offsetAnimation, child: child);
+                    },
+                    transitionDuration: caveTransition,
+                  ),
+                );
+              },
+            ),
+            _buildUploadOption(
+              icon: Icons.upload_file,
+              label: 'Upload File',
+              color: sapphire,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                _pickFile();
+              },
+            ),
+            _buildUploadOption(
+              icon: Icons.library_add,
+              label: 'Combine Clips',
+              color: amethyst,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                      const ClipCombinerPage(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(1.0, 0.0);
+                      const end = Offset.zero;
+                      const curve = Curves.easeInOutQuart;
+                      var tween = Tween(begin: begin, end: end)
+                          .chain(CurveTween(curve: curve));
+                      var offsetAnimation = animation.drive(tween);
+                      return SlideTransition(position: offsetAnimation, child: child);
+                    },
+                    transitionDuration: caveTransition,
+                  ),
+                );
+              },
             ),
           ],
         ),

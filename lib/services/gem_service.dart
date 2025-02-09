@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/gem_model.dart';
 import 'cloudinary_service.dart';
+import 'auth_service.dart';
 
 class GemService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final CloudinaryService _cloudinaryService = CloudinaryService();
+  final AuthService _authService = AuthService();
   final String _collection = 'gems';
 
   // Create new gem
@@ -35,7 +37,8 @@ class GemService {
         cloudinaryUrl: cloudinaryUrl,
         cloudinaryPublicId: cloudinaryPublicId,
         bytes: bytes,
-        tags: tags,
+        tags: tags ?? [],
+        createdAt: DateTime.now(),
         sourceGemId: sourceGemId,
       );
 
@@ -220,6 +223,26 @@ class GemService {
       return [originalGem, ...derivatives];
     } catch (e) {
       print('❌ Error getting gem versions: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<GemModel>> getAllGems() async {
+    try {
+      final user = _authService.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final snapshot = await _firestore
+          .collection('gems')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => GemModel.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      print('❌ Error getting all gems: $e');
       rethrow;
     }
   }
