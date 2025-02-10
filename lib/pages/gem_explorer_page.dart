@@ -26,6 +26,219 @@ import 'video_crop_page.dart';
 import 'package:flutter/rendering.dart';
 import 'gem_meta_edit_page.dart';
 import '../services/gem_service.dart';
+import '../services/cloudinary_service.dart';
+import 'gem_gallery_page.dart';
+import 'package:just_audio/just_audio.dart';
+
+// Helper classes for animations and UI
+class _TrashFly {
+  final Offset baseOffset;
+  final double phase;
+
+  _TrashFly({
+    required this.baseOffset,
+    required this.phase,
+  });
+}
+
+class _TrashFume {
+  final Offset baseOffset;
+  final double phase;
+
+  _TrashFume({
+    required this.baseOffset,
+    required this.phase,
+  });
+}
+
+class _CrystalShard {
+  final double angle;
+  final double speed;
+  final Color color;
+  final double rotationSpeed;
+  final double size;
+  late Offset position;
+  late double rotation;
+
+  _CrystalShard({
+    required this.angle,
+    required this.speed,
+    required this.color,
+    required this.rotationSpeed,
+    required this.size,
+  }) {
+    position = Offset.zero;
+    rotation = 0;
+  }
+
+  void update(double progress) {
+    final distance = speed * progress;
+    position = Offset(
+      math.cos(angle) * distance,
+      math.sin(angle) * distance,
+    );
+    rotation = rotationSpeed * progress * math.pi * 2;
+  }
+}
+
+class _HexagonClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) * 0.5;
+    
+    for (int i = 0; i < 6; i++) {
+      final angle = i * math.pi / 3;
+      final point = Offset(
+        center.dx + radius * math.cos(angle),
+        center.dy + radius * math.sin(angle),
+      );
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_HexagonClipper oldClipper) => false;
+}
+
+class _NavigationHexagonPainter extends CustomPainter {
+  final double progress;
+  final String? hoveredEdge;
+
+  _NavigationHexagonPainter({
+    required this.progress,
+    required this.hoveredEdge,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) * 0.48;
+    
+    // Draw background hexagon
+    final bgPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          amethyst.withOpacity(0.1),
+          sapphire.withOpacity(0.1),
+          ruby.withOpacity(0.1),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+        transform: GradientRotation(progress * 2 * math.pi),
+      ).createShader(Offset.zero & size);
+
+    final path = Path();
+    final points = <Offset>[];
+    
+    for (int i = 0; i < 6; i++) {
+      final angle = i * math.pi / 3 - math.pi / 6;
+      final point = Offset(
+        center.dx + radius * math.cos(angle),
+        center.dy + radius * math.sin(angle),
+      );
+      points.add(point);
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    
+    canvas.drawPath(path, bgPaint);
+
+    // Draw edge segments with hover effects
+    final edgePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+
+    final directions = ['up', 'topRight', 'bottomRight', 'down', 'bottomLeft', 'topLeft'];
+    
+    for (int i = 0; i < 6; i++) {
+      final start = points[i];
+      final end = points[(i + 1) % 6];
+      final direction = directions[i];
+      
+      final isHovered = hoveredEdge == direction;
+      edgePaint.shader = LinearGradient(
+        colors: [
+          isHovered ? amethyst : amethyst.withOpacity(0.3),
+          isHovered ? sapphire : sapphire.withOpacity(0.3),
+        ],
+        begin: Alignment(start.dx / size.width, start.dy / size.height),
+        end: Alignment(end.dx / size.width, end.dy / size.height),
+      ).createShader(Offset.zero & size);
+
+      canvas.drawLine(start, end, edgePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_NavigationHexagonPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.hoveredEdge != hoveredEdge;
+  }
+}
+
+class _CrystalShatterPainter extends CustomPainter {
+  final double progress;
+  final List<_CrystalShard> shards;
+
+  _CrystalShatterPainter({
+    required this.progress,
+    required this.shards,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    // Update and draw each shard
+    for (var shard in shards) {
+      shard.update(progress);
+      
+      final paint = Paint()
+        ..color = shard.color.withOpacity((1 - progress) * 0.8)
+        ..style = PaintingStyle.fill;
+
+      canvas.save();
+      canvas.translate(
+        center.dx + shard.position.dx,
+        center.dy + shard.position.dy,
+      );
+      canvas.rotate(shard.rotation);
+
+      // Draw crystal shard
+      final path = Path();
+      path.moveTo(-shard.size / 2, -shard.size / 2);
+      path.lineTo(shard.size / 2, -shard.size / 2);
+      path.lineTo(0, shard.size / 2);
+      path.close();
+
+      canvas.drawPath(path, paint);
+      canvas.restore();
+    }
+
+    // Draw fade out overlay
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = deepCave.withOpacity(progress * 0.8)
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CrystalShatterPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
 
 class GemExplorerPage extends StatefulWidget {
   final File recordedVideo;
@@ -47,8 +260,10 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   late VideoPlayerController _videoController;
   late AnimationController _shimmerController;
   final GemService _gemService = GemService();
+  final _audioPlayer = AudioPlayer();
   String? _errorMessage;
   bool _isPlaying = false;
+  bool _isMuted = false;  // Add mute state
   
   // Track current position and content
   Offset _currentOffset = Offset.zero;
@@ -92,6 +307,16 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     'bottomLeft': {'offset': const Offset(-1, 0.5), 'angle': 2 * math.pi / 3},// Content slides up-right
   };
 
+  late AnimationController _trashWobbleController;
+  late AnimationController _flyController;
+  late AnimationController _fumeController;
+  final List<_TrashFly> _flies = [];
+  final List<_TrashFume> _fumes = [];
+
+  late AnimationController _shatterController;
+  final List<_CrystalShard> _shards = [];
+  bool _isDeleting = false;
+
   @override
   void initState() {
     super.initState();
@@ -106,6 +331,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
               _videoController.play();
               _videoController.setLooping(true);
+              _videoController.setVolume(1.0);  // Set initial volume
               print('Video initialized and playing');
             });
           }
@@ -122,6 +348,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
               _videoController.play();
               _videoController.setLooping(true);
+              _videoController.setVolume(1.0);  // Set initial volume
               print('Video initialized and playing');
             });
           }
@@ -143,6 +370,73 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       'cloudinaryUrl': cloudinaryUrl,
     };
     _generateSurroundingContent(const Offset(0, 0));
+
+    // Initialize trash animation controllers
+    _trashWobbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _flyController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
+    _fumeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat();
+
+    // Create flies with random positions
+    for (int i = 0; i < 3; i++) {
+      _flies.add(_TrashFly(
+        baseOffset: Offset(
+          math.Random().nextDouble() * 20 - 10,
+          math.Random().nextDouble() * 20 - 10,
+        ),
+        phase: math.Random().nextDouble() * math.pi * 2,
+      ));
+    }
+
+    // Create fumes with random properties
+    for (int i = 0; i < 4; i++) {
+      _fumes.add(_TrashFume(
+        baseOffset: Offset(
+          math.Random().nextDouble() * 16 - 8,
+          -10 - math.Random().nextDouble() * 10,
+        ),
+        phase: math.Random().nextDouble() * math.pi * 2,
+      ));
+    }
+
+    _shatterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    // Generate crystal shards for deletion animation
+    for (int i = 0; i < 12; i++) {
+      _shards.add(_CrystalShard(
+        angle: i * (math.pi * 2 / 12),
+        speed: 100 + math.Random().nextDouble() * 200,
+        color: [emerald, amethyst, sapphire, ruby][math.Random().nextInt(4)],
+        rotationSpeed: math.Random().nextDouble() * 4 - 2,
+        size: 10 + math.Random().nextDouble() * 20,
+      ));
+    }
+
+    // Initialize audio player
+    _initAudioPlayer();
+  }
+
+  Future<void> _initAudioPlayer() async {
+    try {
+      await _audioPlayer.setAsset('assets/audio/crystal_delete.mp3');
+      await _audioPlayer.setLoopMode(LoopMode.one);  // Loop the audio
+      await _audioPlayer.setVolume(1.0);  // Set volume to 62.5% (25% louder than before)
+    } catch (e) {
+      print('❌ Error initializing audio player: $e');
+    }
   }
 
   @override
@@ -150,6 +444,11 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     _videoController.dispose();
     _shimmerController.dispose();
     _slideController?.dispose();
+    _trashWobbleController.dispose();
+    _flyController.dispose();
+    _fumeController.dispose();
+    _shatterController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -475,6 +774,296 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     });
   }
 
+  Widget _buildTrashButton() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: GestureDetector(
+        onTapDown: (_) {
+          _trashWobbleController.forward(from: 0);
+          HapticFeedback.mediumImpact();
+        },
+        onTapUp: (_) async {
+          // Show delete confirmation dialog
+          showGeneralDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierLabel: 'Delete Confirmation',
+            barrierColor: deepCave.withOpacity(0.8),
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (context, animation, secondaryAnimation) {
+              // Start playing the audio
+              _audioPlayer.play();
+              
+              return Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: caveShadow.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(emeraldCut),
+                    border: Border.all(
+                      color: ruby.withOpacity(0.3),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ruby.withOpacity(0.2),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Animated trash icon
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: ruby.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: ruby.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Reuse our animated flies and fumes here
+                            ...List.generate(_fumes.length, (index) {
+                              return AnimatedBuilder(
+                                animation: _fumeController,
+                                builder: (context, child) {
+                                  final fume = _fumes[index];
+                                  final progress = _fumeController.value;
+                                  final yOffset = fume.baseOffset.dy - (progress * 20);
+                                  final xOffset = fume.baseOffset.dx + 
+                                    math.sin(progress * math.pi * 2 + fume.phase) * 4;
+                                  return Positioned(
+                                    left: 30 + xOffset,
+                                    top: 30 + yOffset,
+                                    child: Transform.scale(
+                                      scale: 0.8 + progress * 0.4,
+                                      child: Opacity(
+                                        opacity: (1 - progress) * 0.6,
+                                        child: Text(
+                                          '~',
+                                          style: TextStyle(
+                                            color: ruby.withOpacity(0.6),
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }),
+                            Center(
+                              child: Icon(
+                                Icons.delete_forever,
+                                color: ruby.withOpacity(0.8),
+                                size: 32,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Are you sure you want to delete this gem?',
+                        style: crystalHeading.copyWith(
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This action cannot be undone!',
+                        style: gemText.copyWith(
+                          color: ruby,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          // Cancel button
+                          TextButton(
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              Navigator.of(context).pop();
+                            },
+                            style: TextButton.styleFrom(
+                              backgroundColor: sapphire.withOpacity(0.1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(emeraldCut),
+                                side: BorderSide(
+                                  color: sapphire.withOpacity(0.3),
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('Cancel '),
+                                const Text('😱', style: TextStyle(fontSize: 20)),
+                              ],
+                            ),
+                          ),
+                          // Delete button
+                          TextButton(
+                            onPressed: () async {
+                              HapticFeedback.mediumImpact();
+                              Navigator.of(context).pop(true);
+                              await _deleteGem();
+                            },
+                            style: TextButton.styleFrom(
+                              backgroundColor: ruby.withOpacity(0.1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(emeraldCut),
+                                side: BorderSide(
+                                  color: ruby.withOpacity(0.3),
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('Delete '),
+                                const Text('😈', style: TextStyle(fontSize: 20)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ).then((_) {
+            // Stop the audio when dialog is closed
+            _audioPlayer.stop();
+          });
+        },
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: ruby.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(emeraldCut),
+            border: Border.all(
+              color: ruby.withOpacity(0.3),
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Fumes
+              ...List.generate(_fumes.length, (index) {
+                return AnimatedBuilder(
+                  animation: _fumeController,
+                  builder: (context, child) {
+                    final fume = _fumes[index];
+                    final progress = _fumeController.value;
+                    final yOffset = fume.baseOffset.dy - (progress * 20);
+                    final xOffset = fume.baseOffset.dx + 
+                      math.sin(progress * math.pi * 2 + fume.phase) * 4;
+                    final opacity = (1 - progress) * 0.6;
+
+                    return Positioned(
+                      left: 20 + xOffset,
+                      top: 20 + yOffset,
+                      child: Transform.scale(
+                        scale: 0.8 + progress * 0.4,
+                        child: Opacity(
+                          opacity: opacity,
+                          child: Text(
+                            '~',
+                            style: TextStyle(
+                              color: ruby.withOpacity(0.6),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+
+              // Flies
+              ...List.generate(_flies.length, (index) {
+                return AnimatedBuilder(
+                  animation: _flyController,
+                  builder: (context, child) {
+                    final fly = _flies[index];
+                    final progress = _flyController.value;
+                    final xOffset = fly.baseOffset.dx + 
+                      math.sin(progress * math.pi * 4 + fly.phase) * 8;
+                    final yOffset = fly.baseOffset.dy + 
+                      math.cos(progress * math.pi * 2 + fly.phase) * 6;
+
+                    return Positioned(
+                      left: 20 + xOffset,
+                      top: 20 + yOffset,
+                      child: Text(
+                        '•',
+                        style: TextStyle(
+                          color: ruby.withOpacity(0.8),
+                          fontSize: 8,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+
+              // Trash can
+              Center(
+                child: AnimatedBuilder(
+                  animation: _trashWobbleController,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: math.sin(_trashWobbleController.value * math.pi * 2) * 0.1,
+                      child: Icon(
+                        Icons.delete_forever,
+                        color: ruby.withOpacity(0.8),
+                        size: 24,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Add method to toggle mute state
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+      _videoController.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+    HapticFeedback.mediumImpact();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_errorMessage != null) {
@@ -485,150 +1074,176 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       return _buildLoadingScreen();
     }
 
-    return Scaffold(
-      backgroundColor: deepCave,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: Text(
-          'Gem Explorer',
-          style: crystalHeading.copyWith(fontSize: 20),
-        ),
-        actions: [
-          if (widget.gemId != null) // Only show edit button for existing gems
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: TextButton.icon(
-                icon: const Icon(Icons.edit, color: emerald, size: 20),
-                label: Text(
-                  'Edit Meta',
-                  style: gemText.copyWith(
-                    color: emerald,
-                    fontSize: 14,
-                  ),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: deepCave,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            title: Text(
+              'Gem Explorer',
+              style: crystalHeading.copyWith(fontSize: 20),
+            ),
+            actions: [
+              // Add mute button
+              IconButton(
+                icon: Icon(
+                  _isMuted ? Icons.volume_off : Icons.volume_up,
+                  color: _isMuted ? ruby : emerald,
                 ),
-                onPressed: () async {
-                  final gem = await _gemService.getGem(widget.gemId!);
-                  if (gem != null && mounted) {
-                    final result = await Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => 
-                          GemMetaEditPage(
-                            gemId: widget.gemId!,
-                            gem: gem,
-                          ),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          const begin = Offset(1.0, 0.0);
-                          const end = Offset.zero;
-                          const curve = Curves.easeInOutQuart;
-                          var tween = Tween(begin: begin, end: end)
-                              .chain(CurveTween(curve: curve));
-                          var offsetAnimation = animation.drive(tween);
-                          return SlideTransition(position: offsetAnimation, child: child);
-                        },
-                        transitionDuration: caveTransition,
+                onPressed: _toggleMute,
+              ),
+              _buildTrashButton(),
+              if (widget.gemId != null) // Only show edit button for existing gems
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.edit, color: emerald, size: 20),
+                    label: Text(
+                      'Edit Meta',
+                      style: gemText.copyWith(
+                        color: emerald,
+                        fontSize: 14,
                       ),
-                    );
-                    
-                    // Refresh the page if changes were made
-                    if (result == true) {
-                      setState(() {});
-                    }
-                  }
-                },
-                style: TextButton.styleFrom(
-                  backgroundColor: emerald.withOpacity(0.1),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(emeraldCut),
-                    side: BorderSide(
-                      color: emerald.withOpacity(0.3),
+                    ),
+                    onPressed: () async {
+                      final gem = await _gemService.getGem(widget.gemId!);
+                      if (gem != null && mounted) {
+                        final result = await Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => 
+                              GemMetaEditPage(
+                                gemId: widget.gemId!,
+                                gem: gem,
+                              ),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              const begin = Offset(1.0, 0.0);
+                              const end = Offset.zero;
+                              const curve = Curves.easeInOutQuart;
+                              var tween = Tween(begin: begin, end: end)
+                                  .chain(CurveTween(curve: curve));
+                              var offsetAnimation = animation.drive(tween);
+                              return SlideTransition(position: offsetAnimation, child: child);
+                            },
+                            transitionDuration: caveTransition,
+                          ),
+                        );
+                        
+                        // Refresh the page if changes were made
+                        if (result == true) {
+                          setState(() {});
+                        }
+                      }
+                    },
+                    style: TextButton.styleFrom(
+                      backgroundColor: emerald.withOpacity(0.1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(emeraldCut),
+                        side: BorderSide(
+                          color: emerald.withOpacity(0.3),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
-        flexibleSpace: ClipRRect(
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    amethyst.withOpacity(0.15),
-                    deepCave.withOpacity(0.5),
-                  ],
+            ],
+            flexibleSpace: ClipRRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        amethyst.withOpacity(0.15),
+                        deepCave.withOpacity(0.5),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Main content with animations
-            Center(
-              child: AnimatedBuilder(
-                animation: _slideController ?? const AlwaysStoppedAnimation(0),
-                builder: (context, child) {
-                  final slideOffset = _slideAnimation?.value ?? Offset.zero;
-                  return Transform.translate(
-                    offset: Offset(
-                      slideOffset.dx * MediaQuery.of(context).size.width * 0.5,
-                      slideOffset.dy * MediaQuery.of(context).size.height * 0.5,
-                    ),
-                    child: _buildHexagonalGrid(),
-                  );
-                },
-              ),
-            ),
-
-            // Path indicator
-            Positioned(
-              top: 16,
-              left: 16,
-              child: Text(
-                _currentPath.join(' → '),
-                style: gemText.copyWith(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 12,
+          body: SafeArea(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Main content with animations
+                Center(
+                  child: AnimatedBuilder(
+                    animation: _slideController ?? const AlwaysStoppedAnimation(0),
+                    builder: (context, child) {
+                      final slideOffset = _slideAnimation?.value ?? Offset.zero;
+                      return Transform.translate(
+                        offset: Offset(
+                          slideOffset.dx * MediaQuery.of(context).size.width * 0.5,
+                          slideOffset.dy * MediaQuery.of(context).size.height * 0.5,
+                        ),
+                        child: _buildHexagonalGrid(),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ),
 
-            // Publish button
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 24,
-              child: GemButton(
-                text: '✨ Share Your Gem',
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PublishGemPage(
-                        cloudinaryUrl: cloudinaryUrl!,
-                      ),
+                // Path indicator
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Text(
+                    _currentPath.join(' → '),
+                    style: gemText.copyWith(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
                     ),
-                  );
-                },
-                gemColor: amethyst,
-                isAnimated: true,
-              ),
+                  ),
+                ),
+
+                // Publish button
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 24,
+                  child: GemButton(
+                    text: '✨ Share Your Gem',
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PublishGemPage(
+                            cloudinaryUrl: cloudinaryUrl!,
+                          ),
+                        ),
+                      );
+                    },
+                    gemColor: amethyst,
+                    isAnimated: true,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        if (_isDeleting)
+          AnimatedBuilder(
+            animation: _shatterController,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: _CrystalShatterPainter(
+                  progress: _shatterController.value,
+                  shards: _shards,
+                ),
+                size: Size.infinite,
+              );
+            },
+          ),
+      ],
     );
   }
 
@@ -686,109 +1301,76 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       ),
     );
   }
-}
 
-class _HexagonClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.5;
-    
-    for (int i = 0; i < 6; i++) {
-      final angle = i * math.pi / 3;
-      final point = Offset(
-        center.dx + radius * math.cos(angle),
-        center.dy + radius * math.sin(angle),
-      );
-      if (i == 0) {
-        path.moveTo(point.dx, point.dy);
-      } else {
-        path.lineTo(point.dx, point.dy);
-      }
+  // Delete the gem from both device and cloud
+  Future<void> _deleteGem() async {
+    if (widget.gemId == null) {
+      print('❌ No gem ID provided for deletion');
+      return;
     }
-    path.close();
-    return path;
-  }
 
-  @override
-  bool shouldReclip(_HexagonClipper oldClipper) => false;
-}
+    setState(() => _isDeleting = true);
 
-class _NavigationHexagonPainter extends CustomPainter {
-  final double progress;
-  final String? hoveredEdge;
-
-  _NavigationHexagonPainter({
-    required this.progress,
-    required this.hoveredEdge,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.48;
-    
-    // Draw background hexagon
-    final bgPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          amethyst.withOpacity(0.1),
-          sapphire.withOpacity(0.1),
-          ruby.withOpacity(0.1),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-        transform: GradientRotation(progress * 2 * math.pi),
-      ).createShader(Offset.zero & size);
-
-    final path = Path();
-    final points = <Offset>[];
-    
-    for (int i = 0; i < 6; i++) {
-      final angle = i * math.pi / 3 - math.pi / 6;
-      final point = Offset(
-        center.dx + radius * math.cos(angle),
-        center.dy + radius * math.sin(angle),
-      );
-      points.add(point);
-      if (i == 0) {
-        path.moveTo(point.dx, point.dy);
-      } else {
-        path.lineTo(point.dx, point.dy);
-      }
-    }
-    path.close();
-    
-    canvas.drawPath(path, bgPaint);
-
-    // Draw edge segments with hover effects
-    final edgePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    final directions = ['up', 'topRight', 'bottomRight', 'down', 'bottomLeft', 'topLeft'];
-    
-    for (int i = 0; i < 6; i++) {
-      final start = points[i];
-      final end = points[(i + 1) % 6];
-      final direction = directions[i];
+    try {
+      // Start the shattering animation
+      _shatterController.forward(from: 0);
       
-      final isHovered = hoveredEdge == direction;
-      edgePaint.shader = LinearGradient(
-        colors: [
-          isHovered ? amethyst : amethyst.withOpacity(0.3),
-          isHovered ? sapphire : sapphire.withOpacity(0.3),
-        ],
-        begin: Alignment(start.dx / size.width, start.dy / size.height),
-        end: Alignment(end.dx / size.width, end.dy / size.height),
-      ).createShader(Offset.zero & size);
+      // Get the gem data before deletion
+      final gem = await _gemService.getGem(widget.gemId!);
+      if (gem == null) throw Exception('Gem not found');
 
-      canvas.drawLine(start, end, edgePaint);
+      // Delete from Firestore first
+      await _gemService.deleteGem(widget.gemId!);
+      print('✨ Deleted gem from Firestore');
+
+      // Delete from Cloudinary if URL exists
+      if (gem.cloudinaryPublicId != null) {
+        final cloudinaryService = CloudinaryService();
+        await cloudinaryService.deleteVideo(gem.cloudinaryPublicId);
+        print('✨ Deleted video from Cloudinary');
+      }
+
+      // Delete local file if it exists
+      if (widget.recordedVideo.existsSync()) {
+        await widget.recordedVideo.delete();
+        print('✨ Deleted local video file');
+      }
+
+      // Wait for animation to complete
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              const GemGalleryPage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(-1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: caveTransition,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error deleting gem: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete gem: $e',
+              style: gemText.copyWith(color: Colors.white),
+            ),
+            backgroundColor: ruby.withOpacity(0.8),
+          ),
+        );
+        setState(() => _isDeleting = false);
+      }
     }
-  }
-
-  @override
-  bool shouldRepaint(_NavigationHexagonPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.hoveredEdge != hoveredEdge;
   }
 } 

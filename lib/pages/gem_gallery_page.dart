@@ -262,22 +262,36 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
                   )
                 else if (_userGems.isEmpty)
                   SliverFillRemaining(
+                    hasScrollBody: false,
                     child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.diamond_outlined,
-                            color: silver,
-                            size: 64,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No gems found in your collection yet.\nStart creating to fill your treasure chest!',
-                            style: gemText.copyWith(color: silver),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.diamond_outlined,
+                              color: silver,
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No gems found in your collection yet.',
+                              style: gemText.copyWith(color: silver),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Start creating to fill your treasure chest!',
+                              style: gemText.copyWith(
+                                color: silver.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   )
@@ -743,6 +757,26 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildGemGrid() {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16.0,
+        crossAxisSpacing: 16.0,
+        childAspectRatio: 0.8,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index < _filteredGems.length) {
+            return _buildGemCard(_filteredGems[index]);
+          }
+          return null;
+        },
+        childCount: _filteredGems.length,
+      ),
     );
   }
 }

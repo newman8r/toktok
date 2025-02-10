@@ -17,3 +17,23 @@ import * as logger from "firebase-functions/logger";
 //   logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
 // });
+
+// Test endpoint to verify our function deployment and communication
+export const testYoutubeEndpoint = onRequest(async (request, response) => {
+  logger.info("YouTube download endpoint test called", {
+    timestamp: new Date().toISOString(),
+    method: request.method,
+    headers: request.headers,
+  });
+
+  // Send a test response
+  response.json({
+    status: "success",
+    message: "YouTube download endpoint is ready! 🚀",
+    serverTime: new Date().toISOString(),
+    receivedMethod: request.method,
+  });
+});
+
+// Export YouTube functions
+export * from "./youtube";
