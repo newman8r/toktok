@@ -26,6 +26,7 @@ import 'camera_page.dart';
 import 'gem_gallery_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'clip_combiner_page.dart';
+import 'auth_page.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -179,6 +180,15 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
               try {
                 await _authService.signOut();
                 print('👋 User logged out successfully');
+                
+                if (mounted) {
+                  // Force navigation to AuthPage and clear the stack
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AuthPage()),
+                    (route) => false,
+                  );
+                }
               } catch (e) {
                 print('❌ Error logging out: $e');
                 if (mounted) {

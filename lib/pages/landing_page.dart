@@ -190,7 +190,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
         curve: Curves.easeOutBack,
       ),
       child: GemButton(
-        text: 'Enter the Mine',
+        text: 'Proceed',
         onPressed: () {
           HapticFeedback.mediumImpact();
           Navigator.push(

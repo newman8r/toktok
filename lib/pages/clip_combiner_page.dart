@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' show Random, pi, cos, sin;
 import '../theme/gem_theme.dart';
 import '../widgets/gem_button.dart';
 import '../services/gem_service.dart';
@@ -277,6 +278,33 @@ class _ClipCombinerPageState extends State<ClipCombinerPage> with TickerProvider
     }
   }
 
+  void _showCrystalParticles() {
+    // Get the render box of the button
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final buttonSize = renderBox.size;
+    final buttonPosition = renderBox.localToGlobal(Offset.zero);
+
+    // Create overlay entry for particles
+    final overlay = Overlay.of(context);
+    OverlayEntry? entry;  // Declare entry variable
+    
+    entry = OverlayEntry(  // Assign entry
+      builder: (context) => Positioned(
+        left: buttonPosition.dx,
+        top: buttonPosition.dy,
+        width: buttonSize.width,
+        height: buttonSize.height,
+        child: CrystalParticleEffect(
+          onComplete: () {
+            entry?.remove();  // Use safe call operator
+          },
+        ),
+      ),
+    );
+
+    overlay.insert(entry);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -426,11 +454,90 @@ class _ClipCombinerPageState extends State<ClipCombinerPage> with TickerProvider
                       ],
                     ),
                   )
-                : GemButton(
-                    text: 'Create Movie from ${_selectedGems.length} Clips',
-                    onPressed: _createMovie,
-                    gemColor: emerald,
-                    isAnimated: true,
+                : Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Ambient glow behind button
+                      Container(
+                        height: 60,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(brilliantCut),
+                          boxShadow: [
+                            BoxShadow(
+                              color: emerald.withOpacity(0.2),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                            BoxShadow(
+                              color: amethyst.withOpacity(0.1),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Crystal button
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              emerald.withOpacity(0.9),
+                              emerald.withOpacity(0.7),
+                              sapphire.withOpacity(0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(brilliantCut),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              // Crystal particle effect on tap
+                              _showCrystalParticles();
+                              _createMovie();
+                            },
+                            borderRadius: BorderRadius.circular(brilliantCut),
+                            splashColor: emerald.withOpacity(0.3),
+                            highlightColor: amethyst.withOpacity(0.1),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome,
+                                    color: Colors.white.withOpacity(0.9),
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Create Movie from ${_selectedGems.length} Clips',
+                                    style: gemText.copyWith(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                      shadows: [
+                                        Shadow(
+                                          color: emerald.withOpacity(0.5),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
             ),
         ],
@@ -676,6 +783,119 @@ class _CombinerBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CombinerBackgroundPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+class CrystalParticleEffect extends StatefulWidget {
+  final VoidCallback onComplete;
+
+  const CrystalParticleEffect({
+    Key? key,
+    required this.onComplete,
+  }) : super(key: key);
+
+  @override
+  State<CrystalParticleEffect> createState() => _CrystalParticleEffectState();
+}
+
+class _CrystalParticleEffectState extends State<CrystalParticleEffect> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<CrystalParticle> _particles;
+  final Random _random = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    // Initialize particles
+    _particles = List.generate(20, (index) => CrystalParticle(random: _random));
+
+    // Start animation
+    _controller.forward().then((_) => widget.onComplete());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: CrystalParticlePainter(
+            progress: _controller.value,
+            particles: _particles,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class CrystalParticle {
+  final double angle;
+  final double speed;
+  final double size;
+  final Color color;
+
+  CrystalParticle({required Random random})
+      : angle = random.nextDouble() * 2 * pi,
+        speed = random.nextDouble() * 100 + 50,
+        size = random.nextDouble() * 8 + 2,
+        color = [
+          emerald,
+          amethyst,
+          sapphire,
+        ][random.nextInt(3)];
+}
+
+class CrystalParticlePainter extends CustomPainter {
+  final double progress;
+  final List<CrystalParticle> particles;
+
+  CrystalParticlePainter({
+    required this.progress,
+    required this.particles,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    for (final particle in particles) {
+      final distance = particle.speed * progress;
+      final dx = cos(particle.angle) * distance;
+      final dy = sin(particle.angle) * distance;
+      final position = center + Offset(dx, dy);
+
+      final paint = Paint()
+        ..color = particle.color.withOpacity((1 - progress) * 0.8)
+        ..style = PaintingStyle.fill;
+
+      // Draw crystal-shaped particle
+      final path = Path();
+      final particleSize = particle.size * (1 - progress * 0.5);
+      path.moveTo(position.dx, position.dy - particleSize);
+      path.lineTo(position.dx + particleSize, position.dy);
+      path.lineTo(position.dx, position.dy + particleSize);
+      path.lineTo(position.dx - particleSize, position.dy);
+      path.close();
+
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CrystalParticlePainter oldDelegate) {
     return oldDelegate.progress != progress;
   }
 } 
