@@ -285,9 +285,13 @@ class CloudinaryService {
         print('🔍 URL being processed: $url');
         print('🔍 Path segments: $pathSegments');
         
-        // Get the version and ID
-        final version = pathSegments[pathSegments.length - 2];  // Gets the v1234567 part
-        final id = pathSegments[pathSegments.length - 1].split('.').first;
+        // Get the version (should be in format v1234567)
+        // Find the segment that starts with 'v' followed by numbers
+        final version = pathSegments.firstWhere(
+          (segment) => segment.startsWith('v') && segment.substring(1).contains(RegExp(r'^\d+$')),
+          orElse: () => 'v1',
+        );
+        final id = pathSegments.last.split('.').first;
         print('🔍 Version: $version');
         print('🔍 Extracted ID: $id');
         return {'version': version, 'id': id};
@@ -297,12 +301,30 @@ class CloudinaryService {
 
       // Create transformation string for video concatenation
       final baseVideo = videoIds.first;
-      final overlayVideos = videoIds.skip(1).map((video) =>
-        'l_video:${video['id']}/fl_splice/fl_layer_apply'
-      ).join('/');
+      final overlayVideos = videoIds.skip(1).map((video) {
+        // For each overlay video, we need to:
+        // 1. Reference just the video ID (without version)
+        // 2. Add splice flag
+        // 3. Add layer_apply flag
+        return [
+          {
+            'l_video': video['id'],  // Just use the ID without version
+            'flags': 'splice'
+          },
+          {
+            'flags': 'layer_apply'
+          }
+        ];
+      }).expand((x) => x).toList();
 
-      // The complete transformation string
-      final transformation = overlayVideos;
+      // Convert transformations to string format
+      final transformation = overlayVideos.map((t) {
+        if (t.containsKey('l_video')) {
+          return 'l_video:${t['l_video']},fl_${t['flags']}';
+        } else {
+          return 'fl_${t['flags']}';
+        }
+      }).join('/');
 
       print('🔄 Transformation string: $transformation');
 
