@@ -1340,7 +1340,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       await Future.delayed(const Duration(milliseconds: 1500));
 
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => 
               const GemGalleryPage(),
@@ -1355,6 +1355,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             },
             transitionDuration: caveTransition,
           ),
+          (route) => false,  // Remove all previous routes
         );
       }
     } catch (e) {
