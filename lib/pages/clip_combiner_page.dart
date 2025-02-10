@@ -5,6 +5,11 @@ import '../widgets/gem_button.dart';
 import '../services/gem_service.dart';
 import '../models/gem_model.dart';
 import 'dart:ui' as ui;
+import '../services/cloudinary_service.dart';
+import '../services/auth_service.dart';
+import 'video_crop_page.dart';
+import 'gem_gallery_page.dart';
+import 'gem_meta_edit_page.dart';
 
 class ClipCombinerPage extends StatefulWidget {
   const ClipCombinerPage({super.key});
@@ -23,6 +28,9 @@ class _ClipCombinerPageState extends State<ClipCombinerPage> with TickerProvider
   List<GemModel> _selectedGems = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final AuthService _authService = AuthService();
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -91,6 +99,182 @@ class _ClipCombinerPageState extends State<ClipCombinerPage> with TickerProvider
       _selectedGems.insert(newIndex, gem);
     });
     HapticFeedback.mediumImpact();
+  }
+
+  Future<void> _createMovie() async {
+    if (_selectedGems.isEmpty) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      // Get current user
+      final user = _authService.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      // Get video URLs in order
+      final videoUrls = _selectedGems.map((gem) => gem.cloudinaryUrl).toList();
+
+      // Combine videos
+      final combinedUrl = await _cloudinaryService.combineVideos(videoUrls);
+      
+      if (combinedUrl == null) {
+        throw Exception('Failed to combine videos');
+      }
+
+      // Create new gem
+      final gem = await _gemService.createGem(
+        userId: user.uid,
+        title: 'Combined Gem', // Default title
+        description: 'Created from ${_selectedGems.length} gems', // Default description
+        cloudinaryUrl: combinedUrl,
+        cloudinaryPublicId: combinedUrl.split('/').last.split('.').first,
+        bytes: 0, // We'll update this later
+        sourceGemId: _selectedGems.first.id, // Reference the first gem as source
+      );
+
+      if (!mounted) return;
+
+      setState(() => _isProcessing = false);
+
+      // Show metadata prompt
+      final bool shouldEditMetadata = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AlertDialog(
+              backgroundColor: deepCave.withOpacity(0.95),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(emeraldCut),
+                side: BorderSide(
+                  color: amethyst.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              title: Column(
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    color: gold,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Your Combined Gem is Ready! ✨',
+                    style: crystalHeading.copyWith(
+                      fontSize: 24,
+                      color: amethyst,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Would you like to add a title, description, and tags to your creation? 💎',
+                    style: gemText.copyWith(
+                      color: silver,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: emerald,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(emeraldCut),
+                          ),
+                        ),
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          Navigator.of(context).pop(true);
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.edit, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Add Details ✍️',
+                              style: gemText.copyWith(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.of(context).pop(false);
+                        },
+                        child: Text(
+                          'No Thanks 👋',
+                          style: gemText.copyWith(
+                            color: silver.withOpacity(0.7),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ) ?? false;
+
+      if (!mounted) return;
+
+      if (shouldEditMetadata) {
+        // Navigate to metadata edit page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GemMetaEditPage(
+              gemId: gem.id,
+              gem: gem,
+            ),
+          ),
+        );
+      } else {
+        // Navigate to gem gallery
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const GemGalleryPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('❌ Error creating combined video: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error creating combined video: $e',
+              style: gemText.copyWith(color: Colors.white),
+            ),
+            backgroundColor: ruby.withOpacity(0.8),
+          ),
+        );
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
   @override
@@ -216,15 +400,38 @@ class _ClipCombinerPageState extends State<ClipCombinerPage> with TickerProvider
               bottom: 24,
               left: 24,
               right: 24,
-              child: GemButton(
-                text: 'Create Movie from ${_selectedGems.length} Clips',
-                onPressed: () {
-                  // TODO: Implement movie creation
-                  print('Creating movie from clips: ${_selectedGems.map((g) => g.title).join(", ")}');
-                },
-                gemColor: emerald,
-                isAnimated: true,
-              ),
+              child: _isProcessing
+                ? Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: deepCave.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(emeraldCut),
+                      border: Border.all(
+                        color: amethyst.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(emerald),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Creating your combined gem...',
+                          style: gemText.copyWith(color: silver),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                : GemButton(
+                    text: 'Create Movie from ${_selectedGems.length} Clips',
+                    onPressed: _createMovie,
+                    gemColor: emerald,
+                    isAnimated: true,
+                  ),
             ),
         ],
       ),

@@ -266,4 +266,134 @@ class CloudinaryService {
       rethrow;
     }
   }
+
+  Future<String?> combineVideos(List<String> videoUrls) async {
+    try {
+      print('🎬 Starting video combination...');
+      print('📋 Videos to combine: ${videoUrls.length}');
+
+      if (videoUrls.isEmpty) return null;
+      if (videoUrls.length == 1) return videoUrls.first;
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final combinedPublicId = 'combined_${_generatePublicId()}';
+
+      // Extract video IDs from URLs
+      final videoIds = videoUrls.map((url) {
+        final uri = Uri.parse(url);
+        final pathSegments = uri.pathSegments;
+        print('🔍 URL being processed: $url');
+        print('🔍 Path segments: $pathSegments');
+        
+        // Get the version and ID
+        final version = pathSegments[pathSegments.length - 2];  // Gets the v1234567 part
+        final id = pathSegments[pathSegments.length - 1].split('.').first;
+        print('🔍 Version: $version');
+        print('🔍 Extracted ID: $id');
+        return {'version': version, 'id': id};
+      }).toList();
+
+      print('📝 Video IDs: $videoIds');
+
+      // Create transformation string for video concatenation
+      final baseVideo = videoIds.first;
+      final overlayVideos = videoIds.skip(1).map((video) =>
+        'l_video:${video['id']}/fl_splice/fl_layer_apply'
+      ).join('/');
+
+      // The complete transformation string
+      final transformation = overlayVideos;
+
+      print('🔄 Transformation string: $transformation');
+
+      // Parameters to sign (in alphabetical order)
+      final paramsToSign = {
+        'public_id': combinedPublicId,
+        'timestamp': timestamp.toString(),
+        'type': 'upload',
+      };
+
+      // Only include transformation if it's not empty
+      if (transformation.isNotEmpty) {
+        paramsToSign['transformation'] = transformation;
+      }
+
+      print('📝 Parameters to sign:');
+      paramsToSign.forEach((key, value) {
+        print('   $key: $value');
+      });
+
+      // Create the string to sign by joining parameters with their values
+      final sortedParams = paramsToSign.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      
+      final stringToSign = sortedParams
+          .map((e) => '${e.key}=${e.value}')
+          .join('&');
+
+      print('🔑 String to sign (before adding API secret): $stringToSign');
+      
+      // For debugging, show the complete string with a masked API secret
+      final maskedApiSecret = _apiSecret.replaceAll(RegExp(r'.'), '*');
+      print('🔑 Complete string to sign (with masked secret): $stringToSign$maskedApiSecret');
+
+      // Generate SHA-1 signature
+      final bytes = utf8.encode(stringToSign + _apiSecret);
+      final signature = crypto.sha1.convert(bytes).toString();
+
+      print('✍️ Generated signature: $signature');
+
+      // Create multipart request
+      final url = Uri.parse('$_baseUrl/video/upload');
+      final request = http.MultipartRequest('POST', url)
+        ..fields.addAll({
+          'api_key': _apiKey,
+          'file': videoUrls.first,  // Use the complete URL of the first video
+          'public_id': combinedPublicId,
+          'resource_type': 'video',
+          'signature': signature,
+          'timestamp': timestamp.toString(),
+          'type': 'upload',
+        });
+
+      // Only add transformation if it's not empty
+      if (transformation.isNotEmpty) {
+        request.fields['transformation'] = transformation;
+      }
+
+      print('🚀 Request fields:');
+      request.fields.forEach((key, value) {
+        if (key == 'api_key') {
+          print('   $key: ${value.substring(0, 4)}...${value.substring(value.length - 4)}');
+        } else {
+          print('   $key: $value');
+        }
+      });
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('📊 Response status: ${response.statusCode}');
+      print('📄 Response body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        print('❌ Failed to combine videos: ${response.body}');
+        return null;
+      }
+
+      final responseData = json.decode(response.body);
+      final secureUrl = responseData['secure_url'] as String?;
+
+      if (secureUrl == null) {
+        print('❌ Failed to get secure URL from response');
+        return null;
+      }
+
+      print('✅ Successfully combined videos: $secureUrl');
+      return secureUrl;
+    } catch (e) {
+      print('❌ Error combining videos: $e');
+      return null;
+    }
+  }
 } 
