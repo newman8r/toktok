@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:crypto/crypto.dart' as crypto;
 import '../models/gem_model.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:path_provider/path_provider.dart';
 
 class CloudinaryService {
   final _random = Random.secure();
@@ -219,13 +221,62 @@ class CloudinaryService {
   }
 
   String getThumbnailUrl(String videoUrl) {
-    // Convert video URL to thumbnail URL
-    // Example: https://res.cloudinary.com/demo/video/upload/v1234/sample.mp4
-    // becomes: https://res.cloudinary.com/demo/video/upload/w_400,h_400,c_fill,g_auto/v1234/sample.jpg
-    return videoUrl.replaceAll(
-      RegExp(r'\/upload\/'),
-      '/upload/w_400,h_400,c_fill,g_auto/'
-    ).replaceAll(RegExp(r'\.[^.]+$'), '.jpg');
+    // Check if it's a Cloudinary URL
+    if (videoUrl.contains('cloudinary.com')) {
+      // Convert video URL to thumbnail URL
+      // Example: https://res.cloudinary.com/demo/video/upload/v1234/sample.mp4
+      // becomes: https://res.cloudinary.com/demo/video/upload/w_400,h_400,c_fill,g_auto/v1234/sample.jpg
+      return videoUrl.replaceAll(
+        RegExp(r'\/upload\/'),
+        '/upload/w_400,h_400,c_fill,g_auto/'
+      ).replaceAll(RegExp(r'\.[^.]+$'), '.jpg');
+    } else {
+      // For non-Cloudinary URLs (like Replicate), we'll use the video URL directly
+      // The GemCard will handle generating a local thumbnail using video_thumbnail
+      return videoUrl;
+    }
+  }
+
+  // New method to get cached thumbnail path
+  Future<String> _getCachedPath(String videoUrl) async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final thumbDir = Directory('${docDir.path}/thumbnails');
+    if (!await thumbDir.exists()) {
+      await thumbDir.create(recursive: true);
+    }
+    // Create a unique but consistent filename for this video URL
+    final filename = crypto.sha1.convert(utf8.encode(videoUrl)).toString();
+    return '${thumbDir.path}/$filename.jpg';
+  }
+
+  // New method to generate local thumbnail from video URL with caching
+  Future<String?> generateLocalThumbnail(String videoUrl) async {
+    try {
+      // Check cache first
+      final cachedPath = await _getCachedPath(videoUrl);
+      final cachedFile = File(cachedPath);
+      
+      // If cached version exists, return it
+      if (await cachedFile.exists()) {
+        print('✨ Using cached thumbnail for: $videoUrl');
+        return cachedPath;
+      }
+
+      print('🎬 Generating new thumbnail for: $videoUrl');
+      // Generate new thumbnail
+      final thumbnailPath = await VideoThumbnail.thumbnailFile(
+        video: videoUrl,
+        thumbnailPath: cachedPath,  // Save directly to cache location
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 400,
+        quality: 75,
+      );
+      
+      return thumbnailPath;
+    } catch (e) {
+      print('❌ Error generating thumbnail: $e');
+      return null;
+    }
   }
 
   Future<bool> deleteVideo(String publicId) async {

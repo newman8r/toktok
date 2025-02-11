@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import 'gem_gallery_page.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:io';
 
 class AIVideoGeneratorPage extends StatefulWidget {
   const AIVideoGeneratorPage({super.key});
@@ -68,14 +69,14 @@ class _AIVideoGeneratorPageState extends State<AIVideoGeneratorPage> with Single
         final user = _authService.currentUser;
         if (user == null) throw Exception('User not authenticated');
 
-        // Create gem in Firestore
+        // Create gem in Firestore with the Replicate URL directly
         await _gemService.createGem(
           userId: user.uid,
           title: 'AI Generated: ${_promptController.text.substring(0, math.min(30, _promptController.text.length))}...',
           description: _promptController.text,
-          cloudinaryUrl: videoUrl,
-          cloudinaryPublicId: videoUrl.split('/').last.split('.').first,
-          bytes: 0, // We don't have the actual file size
+          cloudinaryUrl: videoUrl,  // Use Replicate URL directly
+          cloudinaryPublicId: 'ai_${DateTime.now().millisecondsSinceEpoch}',
+          bytes: 0,
           tags: ['ai_generated', 'replicate'],
         );
 

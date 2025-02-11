@@ -490,6 +490,7 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
   // Includes hover effects and navigation to gem explorer
   Widget _buildGemCard(GemModel gem) {
     final thumbnailUrl = _cloudinaryService.getThumbnailUrl(gem.cloudinaryUrl);
+    final isCloudinaryUrl = thumbnailUrl.contains('cloudinary.com');
     
     return ScaleTransition(
       scale: CurvedAnimation(
@@ -536,29 +537,29 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(emeraldCut),
-                  child: Image.network(
-                    thumbnailUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              sapphire.withOpacity(0.2),
-                              amethyst.withOpacity(0.2),
-                            ],
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.play_circle_outline,
-                          color: silver,
-                          size: 48,
-                        ),
-                      );
-                    },
-                  ),
+                  child: isCloudinaryUrl
+                    ? Image.network(
+                        thumbnailUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildPlaceholder();
+                        },
+                      )
+                    : FutureBuilder<String?>(
+                        future: _cloudinaryService.generateLocalThumbnail(thumbnailUrl),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data != null) {
+                            return Image.file(
+                              File(snapshot.data!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildPlaceholder();
+                              },
+                            );
+                          }
+                          return _buildPlaceholder();
+                        },
+                      ),
                 ),
               ),
 
@@ -633,20 +634,6 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
                                   fontSize: 12,
                                 ),
                               ),
-                              const Spacer(),
-                              Icon(
-                                Icons.favorite,
-                                color: gem.likes.isEmpty ? silver : ruby,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${gem.likes.length}',
-                                style: gemText.copyWith(
-                                  color: silver,
-                                  fontSize: 12,
-                                ),
-                              ),
                             ],
                           ),
                         ],
@@ -658,6 +645,26 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            sapphire.withOpacity(0.2),
+            amethyst.withOpacity(0.2),
+          ],
+        ),
+      ),
+      child: const Icon(
+        Icons.play_circle_outline,
+        color: silver,
+        size: 48,
       ),
     );
   }
