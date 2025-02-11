@@ -7,6 +7,10 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:just_audio/just_audio.dart';
 import '../widgets/gem_button.dart';
+import '../services/cloudinary_service.dart';
+import '../services/gem_service.dart';
+import '../services/auth_service.dart';
+import 'dart:io';
 
 class AIMusicPage extends StatefulWidget {
   final String videoPath;
@@ -335,9 +339,50 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                         children: [
                           GemButton(
                             text: '🎵 Accept Melody',
-                            onPressed: () {
-                              // TODO: Handle accepting the melody
-                              Navigator.pop(context, _generatedAudioUrl);
+                            onPressed: () async {
+                              try {
+                                setState(() => _isGenerating = true);
+                                
+                                // Get audio duration
+                                final duration = await _audioPlayer.duration;
+                                if (duration == null) throw Exception('Could not get audio duration');
+                                
+                                // Create new video with audio
+                                final cloudinaryService = CloudinaryService();
+                                final newVideoUrl = await cloudinaryService.addAudioToVideo(
+                                  videoUrl: widget.videoController.dataSource!,
+                                  audioUrl: _generatedAudioUrl!,
+                                  audioDuration: duration,
+                                );
+                                
+                                // Save to gallery
+                                final gemService = GemService();
+                                final user = AuthService().currentUser;
+                                if (user == null) throw Exception('User not authenticated');
+                                
+                                final videoFile = File(widget.videoPath);
+                                final publicId = newVideoUrl.split('/').last.split('.').first;
+                                
+                                await gemService.createGem(
+                                  userId: user.uid,
+                                  title: 'AI Crystal Melody',
+                                  description: 'Video with AI-generated music',
+                                  cloudinaryUrl: newVideoUrl,
+                                  cloudinaryPublicId: publicId,
+                                  bytes: await videoFile.length(),
+                                  tags: ['ai_music', 'crystal_melody'],
+                                );
+                                
+                                if (mounted) {
+                                  Navigator.pop(context, newVideoUrl);
+                                }
+                              } catch (e) {
+                                print('Error processing video with audio: $e');
+                                setState(() {
+                                  _errorMessage = 'Failed to process video: $e';
+                                  _isGenerating = false;
+                                });
+                              }
                             },
                             gemColor: emerald,
                             isAnimated: true,

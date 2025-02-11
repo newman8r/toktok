@@ -418,4 +418,122 @@ class CloudinaryService {
       return null;
     }
   }
+
+  Future<String> addAudioToVideo({
+    required String videoUrl,
+    required String audioUrl,
+    required Duration audioDuration,
+  }) async {
+    try {
+      print('Starting audio overlay operation...');
+      print('Video URL: $videoUrl');
+      print('Audio URL: $audioUrl');
+      print('Audio duration: $audioDuration');
+
+      // First, download the audio file to a temporary location
+      print('Downloading audio file...');
+      final audioDownloadResponse = await http.get(Uri.parse(audioUrl));
+      final tempDir = await Directory.systemTemp.createTemp('audio_overlay');
+      final tempFile = File('${tempDir.path}/temp_audio.mp3');
+      await tempFile.writeAsBytes(audioDownloadResponse.bodyBytes);
+      print('Audio file downloaded to: ${tempFile.path}');
+
+      // Upload the audio file to Cloudinary
+      print('Uploading audio to Cloudinary...');
+      final audioPublicId = 'audio_${_generatePublicId()}';
+      final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      
+      // Parameters to sign for audio upload (excluding resource_type)
+      final audioUploadParams = {
+        'public_id': audioPublicId,
+        'timestamp': timestamp.toString(),
+        'type': 'upload',
+      };
+      
+      final audioSignature = _generateSignature(audioUploadParams);
+      final audioUploadUrl = Uri.parse('$_baseUrl/video/upload');
+      final audioRequest = http.MultipartRequest('POST', audioUploadUrl)
+        ..fields.addAll({
+          'api_key': _apiKey,
+          'timestamp': timestamp.toString(),
+          'signature': audioSignature,
+          'public_id': audioPublicId,
+          'resource_type': 'video',  // Include in request but not in signature
+          'type': 'upload',
+        })
+        ..files.add(await http.MultipartFile.fromPath('file', tempFile.path));
+
+      final audioStreamedResponse = await audioRequest.send();
+      final audioResponse = await http.Response.fromStream(audioStreamedResponse);
+
+      if (audioResponse.statusCode != 200) {
+        throw Exception('Failed to upload audio: ${audioResponse.body}');
+      }
+
+      final audioResponseData = json.decode(audioResponse.body);
+      final audioCloudinaryUrl = audioResponseData['secure_url'] as String?;
+      if (audioCloudinaryUrl == null) {
+        throw Exception('Failed to get audio URL from response');
+      }
+
+      print('Audio uploaded successfully: $audioCloudinaryUrl');
+
+      // Extract public ID from original video URL
+      final Uri uri = Uri.parse(videoUrl);
+      final String path = uri.path;
+      final String originalPublicId = path.split('/').last.split('.').first;
+      final String newPublicId = '${originalPublicId}_audio_${_generatePublicId().substring(0, 8)}';
+      
+      // Create the eager transformation array using the Cloudinary audio public ID
+      final eagerTransformation = 'du_${audioDuration.inSeconds},so_0,eo_${audioDuration.inSeconds}/l_video:$audioPublicId,fl_splice,so_0';
+
+      // Parameters to sign (in alphabetical order, excluding file, cloud_name, resource_type, and api_key)
+      final paramsToSign = {
+        'eager': eagerTransformation,
+        'public_id': newPublicId,
+        'timestamp': timestamp.toString(),
+        'type': 'upload',
+      };
+
+      final signature = _generateSignature(paramsToSign);
+
+      // Create multipart request
+      final url = Uri.parse('$_baseUrl/video/upload');
+      final request = http.MultipartRequest('POST', url)
+        ..fields.addAll({
+          'api_key': _apiKey,
+          'timestamp': timestamp.toString(),
+          'signature': signature,
+          'public_id': newPublicId,
+          'resource_type': 'video',
+          'type': 'upload',
+          'eager': eagerTransformation,
+          'file': videoUrl,
+        });
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      // Clean up temporary files
+      await tempFile.delete();
+      await tempDir.delete();
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to create new video: ${response.body}');
+      }
+
+      final responseData = json.decode(response.body);
+      final secureUrl = responseData['eager']?[0]?['secure_url'] as String?;
+
+      if (secureUrl == null) {
+        throw Exception('Failed to get secure URL from response');
+      }
+
+      print('Successfully created new video with audio: $secureUrl');
+      return secureUrl;
+    } catch (e) {
+      print('Error in addAudioToVideo: $e');
+      rethrow;
+    }
+  }
 } 
