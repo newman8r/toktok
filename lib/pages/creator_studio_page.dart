@@ -27,6 +27,7 @@ import 'gem_gallery_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'clip_combiner_page.dart';
 import 'auth_page.dart';
+import 'ai_video_generator_page.dart';
 
 class CreatorStudioPage extends StatefulWidget {
   const CreatorStudioPage({super.key});
@@ -417,6 +418,31 @@ class _CreatorStudioPageState extends State<CreatorStudioPage> with TickerProvid
                   PageRouteBuilder(
                     pageBuilder: (context, animation, secondaryAnimation) => 
                       const ClipCombinerPage(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(1.0, 0.0);
+                      const end = Offset.zero;
+                      const curve = Curves.easeInOutQuart;
+                      var tween = Tween(begin: begin, end: end)
+                          .chain(CurveTween(curve: curve));
+                      var offsetAnimation = animation.drive(tween);
+                      return SlideTransition(position: offsetAnimation, child: child);
+                    },
+                    transitionDuration: caveTransition,
+                  ),
+                );
+              },
+            ),
+            _buildUploadOption(
+              icon: Icons.auto_awesome,
+              label: 'AI Video',
+              color: ruby,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                      const AIVideoGeneratorPage(),
                     transitionsBuilder: (context, animation, secondaryAnimation, child) {
                       const begin = Offset(1.0, 0.0);
                       const end = Offset.zero;

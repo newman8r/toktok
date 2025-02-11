@@ -1361,6 +1361,118 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
               gemColor: emerald,
               isAnimated: true,
             ),
+            if (widget.gemId != null) ...[
+              const SizedBox(height: 32),
+              // Animated trash can for deletion
+              GestureDetector(
+                onTap: () async {
+                  HapticFeedback.mediumImpact();
+                  final shouldDelete = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: deepCave,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(emeraldCut),
+                        side: BorderSide(color: ruby.withOpacity(0.3)),
+                      ),
+                      title: Text(
+                        'Delete Broken Gem?',
+                        style: crystalHeading.copyWith(color: ruby),
+                        textAlign: TextAlign.center,
+                      ),
+                      content: Text(
+                        'This video appears to be broken or missing. Would you like to remove it from your collection?',
+                        style: gemText.copyWith(color: silver),
+                        textAlign: TextAlign.center,
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: Text('Cancel', style: gemText.copyWith(color: silver)),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: Text('Delete', style: gemText.copyWith(color: ruby)),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (shouldDelete == true) {
+                    await _deleteGem();
+                  }
+                },
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: ruby.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: ruby.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Reuse our animated flies and fumes here
+                      ...List.generate(_fumes.length, (index) {
+                        return AnimatedBuilder(
+                          animation: _fumeController,
+                          builder: (context, child) {
+                            final fume = _fumes[index];
+                            final progress = _fumeController.value;
+                            final yOffset = fume.baseOffset.dy - (progress * 20);
+                            final xOffset = fume.baseOffset.dx + 
+                              math.sin(progress * math.pi * 2 + fume.phase) * 4;
+                            return Positioned(
+                              left: 40 + xOffset,
+                              top: 40 + yOffset,
+                              child: Transform.scale(
+                                scale: 0.8 + progress * 0.4,
+                                child: Opacity(
+                                  opacity: (1 - progress) * 0.6,
+                                  child: Text(
+                                    '~',
+                                    style: TextStyle(
+                                      color: ruby.withOpacity(0.6),
+                                      fontSize: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }),
+                      Center(
+                        child: AnimatedBuilder(
+                          animation: _trashWobbleController,
+                          builder: (context, child) {
+                            return Transform.rotate(
+                              angle: math.sin(_trashWobbleController.value * math.pi * 2) * 0.1,
+                              child: Icon(
+                                Icons.delete_forever,
+                                color: ruby.withOpacity(0.8),
+                                size: 40,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Tap to delete broken video',
+                style: gemText.copyWith(
+                  color: ruby.withOpacity(0.7),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1396,6 +1508,96 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     setState(() => _isDeleting = true);
 
     try {
+      // Show loading overlay with crystal animation
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,  // Prevent back button
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: deepCave.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(emeraldCut),
+                border: Border.all(
+                  color: ruby.withOpacity(0.3),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: ruby.withOpacity(0.2),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Animated crystal shard
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: Stack(
+                      children: [
+                        // Rotating outer glow
+                        AnimatedBuilder(
+                          animation: _shimmerController,
+                          builder: (context, child) {
+                            return Transform.rotate(
+                              angle: _shimmerController.value * 2 * math.pi,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: SweepGradient(
+                                    colors: [
+                                      ruby.withOpacity(0.5),
+                                      amethyst.withOpacity(0.5),
+                                      sapphire.withOpacity(0.5),
+                                      ruby.withOpacity(0.5),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        // Center crystal
+                        Center(
+                          child: Icon(
+                            Icons.diamond_outlined,
+                            color: ruby.withOpacity(0.8),
+                            size: 32,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Shattering Crystal...',
+                    style: crystalHeading.copyWith(
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your gem is being carefully removed',
+                    style: gemText.copyWith(
+                      color: silver,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
       // Start the shattering animation
       _shatterController.forward(from: 0);
       
@@ -1424,6 +1626,10 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       await Future.delayed(const Duration(milliseconds: 1500));
 
       if (mounted) {
+        // Pop the loading dialog
+        Navigator.of(context).pop();
+        
+        // Navigate back to gallery
         Navigator.of(context).pushAndRemoveUntil(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => 
@@ -1445,6 +1651,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     } catch (e) {
       print('❌ Error deleting gem: $e');
       if (mounted) {
+        // Pop the loading dialog
+        Navigator.of(context).pop();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
