@@ -6,6 +6,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import '../services/contextual_music_service.dart';
 import '../services/openai_service.dart';
+import '../services/uberduck_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 class AIMusicMagicPage extends StatefulWidget {
   final String videoPath;
@@ -25,10 +27,36 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _crystalBallController;
   bool _isMagicStarted = false;
+  bool _isGeneratingLyrics = false;
+  bool _isGeneratingMusic = false;
   final ContextualMusicService _contextService = ContextualMusicService();
   final OpenAIService _openAIService = OpenAIService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   String? _errorMessage;
   String? _generatedLyrics;
+  String? _generatedAudioUrl;
+  bool _hasGenerated = false;
+  String _selectedStyle = 'Modern';  // Default style
+
+  // Style preset mapping between display names and API values
+  final Map<String, String> _stylePresets = {
+    'Abstract': 'Abstract',
+    'Boom Bap': 'Boom Bap',
+    'Cloud Rap': 'Cloud Rap',
+    'Conscious': 'Conscious',
+    'Drill': 'Drill',
+    'East Coast': 'East Coast',
+    'Grime': 'Grime',
+    'Hardcore': 'Hardcore',
+    'Lo-fi': 'Lo-fi',
+    'Melodic': 'Melodic',
+    'Modern': 'Modern',
+    'Old School': 'Old School',
+    'Party': 'Party',
+    'Southern': 'Southern',
+    'Underground': 'Underground',
+    'West Coast': 'West Coast',
+  };
 
   @override
   void initState() {
@@ -39,12 +67,23 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
     )..repeat();
   }
 
+  @override
+  void dispose() {
+    _crystalBallController.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
   Future<void> _startMagic() async {
     try {
       setState(() {
         _isMagicStarted = true;
+        _isGeneratingLyrics = true;
+        _isGeneratingMusic = false;
         _errorMessage = null;
         _generatedLyrics = null;
+        _generatedAudioUrl = null;
+        _hasGenerated = false;
       });
       
       print('🔮 Starting Crystal Magic...');
@@ -73,37 +112,94 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
       print('⏰ Time: ${context.calendar.timeOfDay}');
       
       print('\n🎼 Musical Inspiration:');
-      print('🎵 Suggested Style: ${context.determineMusicStyle()}');
+      print('🎵 Selected Style: $_selectedStyle');
       print('✍️ Lyrical Theme: ${context.generateLyricalTheme()}');
 
       // Generate lyrics with OpenAI
       final locationVibe = '${context.location.ambiance} ${context.location.vibeWords.join(" ")}';
       final timeContext = '${context.calendar.timeOfDay} in ${context.calendar.season}';
       
-      _generatedLyrics = await _openAIService.generateLyrics(
-        musicStyle: context.determineMusicStyle(),
-        weatherMood: context.weather.mood,
-        timeContext: timeContext,
-        locationVibe: locationVibe,
-        temperature: context.weather.temperature.toString(),
-        weatherDescription: context.weather.description,
-      );
-      
-      // TODO: In the next step, we'll use these lyrics with Uberduck!
+      try {
+        _generatedLyrics = await _openAIService.generateLyrics(
+          musicStyle: _selectedStyle,
+          weatherMood: context.weather.mood,
+          timeContext: timeContext,
+          locationVibe: locationVibe,
+          temperature: context.weather.temperature.toString(),
+          weatherDescription: context.weather.description,
+        );
+
+        print('✨ Generated Lyrics:\n$_generatedLyrics');
+        
+        // Ensure lyrics are within 400 character limit
+        if (_generatedLyrics!.length > 400) {
+          print('⚠️ Truncating lyrics to 400 characters');
+          // Find the last complete word before 400 chars
+          final truncated = _generatedLyrics!.substring(0, 400);
+          final lastSpace = truncated.lastIndexOf(' ');
+          _generatedLyrics = truncated.substring(0, lastSpace) + '...';
+          print('📝 Truncated Lyrics:\n$_generatedLyrics');
+        }
+        
+        setState(() {
+          _isGeneratingLyrics = false;
+          _isGeneratingMusic = true;
+        });
+
+        // Generate music with Uberduck
+        print('\n🎵 Starting Uberduck music generation...');
+        print('Style preset: $_selectedStyle');
+        print('Voice model: Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9');
+        print('Lyrics length: ${_generatedLyrics!.length} characters');
+        
+        final result = await UberduckService.generateSong(
+          lyrics: _generatedLyrics!,
+          style_preset: _selectedStyle,
+          voicemodel_uuid: 'Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9',
+        );
+
+        print('\n📦 Uberduck Response:');
+        print(result);
+
+        if (result['status'] == 'OK' && result['output_url'] != null) {
+          print('✅ Successfully generated music!');
+          print('🎵 Audio URL: ${result['output_url']}');
+          
+          setState(() {
+            _generatedAudioUrl = result['output_url'];
+            _hasGenerated = true;
+            _isGeneratingMusic = false;
+          });
+          
+          // Load and play the audio
+          await _audioPlayer.setUrl(_generatedAudioUrl!);
+          _audioPlayer.play();
+          
+          // Start video playback when music starts
+          widget.videoController.play();
+        } else {
+          print('❌ Uberduck response missing status OK or output_url');
+          print('Response data: $result');
+          throw Exception('Invalid response from Uberduck');
+        }
+      } catch (e) {
+        print('❌ Error during music generation: $e');
+        setState(() {
+          _errorMessage = 'Failed to generate music: $e';
+          _isGeneratingMusic = false;
+          _isGeneratingLyrics = false;
+        });
+      }
       
     } catch (e) {
-      print('❌ Error during magic gathering: $e');
+      print('❌ Error during context gathering: $e');
       setState(() {
-        _errorMessage = 'Failed to gather magical context: $e';
+        _errorMessage = 'Failed to gather context: $e';
         _isMagicStarted = false;
+        _isGeneratingLyrics = false;
+        _isGeneratingMusic = false;
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _crystalBallController.dispose();
-    super.dispose();
   }
 
   @override
@@ -233,40 +329,85 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
   }
 
   Widget _buildMagicButton() {
-    return GestureDetector(
-      onTapDown: (_) => _startMagic(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 32,
-          vertical: 16,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              amethyst.withOpacity(0.3),
-              sapphire.withOpacity(0.3),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(emeraldCut),
-          border: Border.all(
-            color: amethyst.withOpacity(0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: amethyst.withOpacity(0.2),
-              blurRadius: 15,
-              spreadRadius: 1,
+    return Column(
+      children: [
+        // Style preset dropdown
+        Container(
+          margin: const EdgeInsets.only(bottom: 24),
+          decoration: BoxDecoration(
+            color: caveShadow.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(emeraldCut),
+            border: Border.all(
+              color: amethyst.withOpacity(0.3),
             ),
-          ],
-        ),
-        child: Text(
-          'Begin Crystal Magic ✨',
-          style: crystalHeading.copyWith(
-            fontSize: 20,
-            color: Colors.white.withOpacity(0.9),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: DropdownButton<String>(
+            value: _stylePresets.entries.firstWhere(
+              (entry) => entry.value == _selectedStyle,
+              orElse: () => const MapEntry('Modern', 'Modern'),
+            ).key,
+            isExpanded: true,
+            dropdownColor: deepCave,
+            style: gemText.copyWith(color: silver),
+            icon: Icon(Icons.arrow_drop_down, color: amethyst),
+            underline: Container(), // Remove the default underline
+            items: _stylePresets.keys.map((String displayName) {
+              return DropdownMenuItem<String>(
+                value: displayName,
+                child: Text(
+                  displayName,
+                  style: gemText.copyWith(
+                    color: _stylePresets[displayName] == _selectedStyle ? amethyst : silver,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() => _selectedStyle = _stylePresets[newValue]!);
+                HapticFeedback.mediumImpact();
+              }
+            },
           ),
         ),
-      ),
+        // Magic button
+        GestureDetector(
+          onTapDown: (_) => _startMagic(),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 32,
+              vertical: 16,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  amethyst.withOpacity(0.3),
+                  sapphire.withOpacity(0.3),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(emeraldCut),
+              border: Border.all(
+                color: amethyst.withOpacity(0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: amethyst.withOpacity(0.2),
+                  blurRadius: 15,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Text(
+              'Begin Crystal Magic ✨',
+              style: crystalHeading.copyWith(
+                fontSize: 20,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -284,30 +425,154 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          'Channeling Crystal Energy...',
-          style: gemText.copyWith(
-            color: amethyst,
-            fontSize: 18,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Creating your magical soundscape',
-          style: gemText.copyWith(
-            color: silver.withOpacity(0.7),
-            fontSize: 14,
-          ),
-        ),
-        if (_errorMessage != null) ...[
-          const SizedBox(height: 16),
+        if (_isGeneratingLyrics) ...[
           Text(
-            _errorMessage!,
+            'Channeling Crystal Energy...',
             style: gemText.copyWith(
-              color: ruby,
+              color: amethyst,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Crafting magical lyrics',
+            style: gemText.copyWith(
+              color: silver.withOpacity(0.7),
               fontSize: 14,
             ),
-            textAlign: TextAlign.center,
+          ),
+        ],
+        if (_isGeneratingMusic) ...[
+          Text(
+            'Weaving the Melody...',
+            style: gemText.copyWith(
+              color: emerald,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Transforming lyrics into song',
+            style: gemText.copyWith(
+              color: silver.withOpacity(0.7),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(emerald),
+              strokeWidth: 2,
+            ),
+          ),
+        ],
+        if (_hasGenerated && _generatedAudioUrl != null) ...[
+          const SizedBox(height: 32),
+          Text(
+            '✨ Your Crystal Melody is Ready!',
+            style: gemText.copyWith(
+              color: emerald,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: Icon(
+                  _audioPlayer.playing ? Icons.pause : Icons.play_arrow,
+                  color: emerald,
+                  size: 32,
+                ),
+                onPressed: () {
+                  if (_audioPlayer.playing) {
+                    _audioPlayer.pause();
+                  } else {
+                    _audioPlayer.play();
+                  }
+                  setState(() {});
+                },
+              ),
+              const SizedBox(width: 24),
+              IconButton(
+                icon: const Icon(
+                  Icons.replay,
+                  color: sapphire,
+                  size: 32,
+                ),
+                onPressed: () {
+                  _audioPlayer.seek(Duration.zero);
+                  _audioPlayer.play();
+                },
+              ),
+            ],
+          ),
+        ],
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: ruby.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(emeraldCut),
+              border: Border.all(
+                color: ruby.withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: ruby,
+                  size: 32,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Crystal Magic Interrupted',
+                  style: gemText.copyWith(
+                    color: ruby,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: gemText.copyWith(
+                    color: ruby.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: _startMagic,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: emerald.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(emeraldCut),
+                border: Border.all(
+                  color: emerald.withOpacity(0.3),
+                ),
+              ),
+              child: Text(
+                'Try Again ✨',
+                style: gemText.copyWith(
+                  color: emerald,
+                  fontSize: 16,
+                ),
+              ),
+            ),
           ),
         ],
       ],
