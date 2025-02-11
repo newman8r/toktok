@@ -17,13 +17,11 @@ class UberduckService {
   static Future<Map<String, dynamic>> generateSong({
     required String lyrics,
     required String style_preset,
-    String? voicemodel_uuid,
+    required String voicemodel_uuid,
   }) async {
     print('🎵 Attempting to generate song with lyrics: ${lyrics.substring(0, math.min(50, lyrics.length))}...');
     print('🎸 Style preset: $style_preset');
-    if (voicemodel_uuid != null) {
-      print('🎤 Voice model UUID: $voicemodel_uuid');
-    }
+    print('🎤 Voice model UUID: $voicemodel_uuid');
 
     if (_apiKey == null || _apiSecret == null) {
       print('❌ API credentials missing!');
@@ -33,7 +31,7 @@ class UberduckService {
     final requestBody = {
       'lyrics': lyrics,
       'style_preset': style_preset,
-      if (voicemodel_uuid != null) 'voicemodel_uuid': voicemodel_uuid,
+      'voicemodel_uuid': voicemodel_uuid,
     };
 
     print('📤 Sending request to $_baseUrl/generate-song');

@@ -38,6 +38,27 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
   String? _generatedAudioUrl;
   String? _errorMessage;
   bool _isVideoPlaying = false;
+  String _selectedStyle = 'Lo-fi';  // Default style - note the exact case
+
+  // Style preset mapping between display names and API values
+  final Map<String, String> _stylePresets = {
+    'Abstract': 'Abstract',
+    'Boom Bap': 'Boom Bap',
+    'Cloud Rap': 'Cloud Rap',
+    'Conscious': 'Conscious',
+    'Drill': 'Drill',
+    'East Coast': 'East Coast',
+    'Grime': 'Grime',
+    'Hardcore': 'Hardcore',
+    'Lo-fi': 'Lo-fi',
+    'Melodic': 'Melodic',
+    'Modern': 'Modern',
+    'Old School': 'Old School',
+    'Party': 'Party',
+    'Southern': 'Southern',
+    'Underground': 'Underground',
+    'West Coast': 'West Coast',
+  };
 
   // Crystal formation animation
   final List<_CrystalPoint> _crystalPoints = [];
@@ -123,10 +144,10 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
       // Start the crystal growth animation
       _crystalGrowthController.forward(from: 0);
       
-      // Generate the music
+      // Generate the music with selected style
       final result = await UberduckService.generateSong(
         lyrics: _promptController.text,
-        style_preset: 'Lo-fi', // Using Lo-fi style for the Grateful Dead lyrics
+        style_preset: _selectedStyle,  // This will now be the correct API value
         voicemodel_uuid: 'Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9',
       );
 
@@ -256,6 +277,56 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                         ),
                       ),
                       const SizedBox(height: 24),
+                      
+                      // Style preset dropdown
+                      Text(
+                        'Choose your style:',
+                        style: gemText.copyWith(
+                          color: silver,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: caveShadow.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(emeraldCut),
+                          border: Border.all(
+                            color: amethyst.withOpacity(0.3),
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: DropdownButton<String>(
+                          value: _stylePresets.entries.firstWhere(
+                            (entry) => entry.value == _selectedStyle,
+                            orElse: () => const MapEntry('Lo-fi', 'Lo-fi'),
+                          ).key,
+                          isExpanded: true,
+                          dropdownColor: deepCave,
+                          style: gemText.copyWith(color: silver),
+                          icon: Icon(Icons.arrow_drop_down, color: amethyst),
+                          underline: Container(), // Remove the default underline
+                          items: _stylePresets.keys.map((String displayName) {
+                            return DropdownMenuItem<String>(
+                              value: displayName,
+                              child: Text(
+                                displayName,
+                                style: gemText.copyWith(
+                                  color: _stylePresets[displayName] == _selectedStyle ? amethyst : silver,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            if (newValue != null) {
+                              setState(() => _selectedStyle = _stylePresets[newValue]!);
+                              HapticFeedback.mediumImpact();
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
                       GemButton(
                         text: '✨ Generate Crystal Melody',
                         onPressed: _generateMusic,
