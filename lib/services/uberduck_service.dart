@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'dart:math' as math;
 
 class UberduckService {
   static final String _baseUrl = 'https://api.uberduck.ai';
@@ -14,13 +15,15 @@ class UberduckService {
 
   // Generate a song using the Uberduck API
   static Future<Map<String, dynamic>> generateSong({
-    required String prompt,
-    String model = 'melody-1',  // Default to melody-1 model
-    bool? shouldQuantize,
-    bool? includeTimepoints,
+    required String lyrics,
+    required String style_preset,
+    String? voicemodel_uuid,
   }) async {
-    print('🎵 Attempting to generate song with prompt: $prompt');
-    print('🔑 Using API Key: ${_apiKey?.substring(0, 5)}... and Secret: ${_apiSecret?.substring(0, 5)}...');
+    print('🎵 Attempting to generate song with lyrics: ${lyrics.substring(0, math.min(50, lyrics.length))}...');
+    print('🎸 Style preset: $style_preset');
+    if (voicemodel_uuid != null) {
+      print('🎤 Voice model UUID: $voicemodel_uuid');
+    }
 
     if (_apiKey == null || _apiSecret == null) {
       print('❌ API credentials missing!');
@@ -28,10 +31,9 @@ class UberduckService {
     }
 
     final requestBody = {
-      'prompt': prompt,
-      'model': model,
-      if (shouldQuantize != null) 'should_quantize': shouldQuantize,
-      if (includeTimepoints != null) 'include_timepoints': includeTimepoints,
+      'lyrics': lyrics,
+      'style_preset': style_preset,
+      if (voicemodel_uuid != null) 'voicemodel_uuid': voicemodel_uuid,
     };
 
     print('📤 Sending request to $_baseUrl/generate-song');

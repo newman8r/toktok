@@ -106,7 +106,7 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
 
   Future<void> _generateMusic() async {
     if (_promptController.text.isEmpty) {
-      setState(() => _errorMessage = 'Please enter a prompt for your music');
+      setState(() => _errorMessage = 'Please enter lyrics for your song');
       return;
     }
 
@@ -121,32 +121,26 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
       
       // Generate the music
       final result = await UberduckService.generateSong(
-        prompt: _promptController.text,
-        model: 'melody-1',  // Specify the melody model
-        shouldQuantize: true,
-        includeTimepoints: false,
+        lyrics: _promptController.text,
+        style_preset: 'Lo-fi', // Using Lo-fi style for the Grateful Dead lyrics
+        voicemodel_uuid: 'Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9',
       );
 
-      // Check status until complete
-      String uuid = result['uuid'];
-      bool isComplete = false;
-      while (!isComplete) {
-        final status = await UberduckService.checkStatus(uuid);
-        if (status['finished']) {
-          isComplete = true;
-          setState(() {
-            _generatedAudioUrl = status['audio_url'];
-            _hasGenerated = true;
-          });
-          // Load and play the audio
-          await _audioPlayer.setUrl(_generatedAudioUrl!);
-          _audioPlayer.play();
-          // Start video playback when music starts
-          widget.videoController.play();
-          setState(() => _isVideoPlaying = true);
-        } else {
-          await Future.delayed(const Duration(seconds: 1));
-        }
+      if (result['status'] == 'OK' && result['output_url'] != null) {
+        setState(() {
+          _generatedAudioUrl = result['output_url'];
+          _hasGenerated = true;
+        });
+        
+        // Load and play the audio
+        await _audioPlayer.setUrl(_generatedAudioUrl!);
+        _audioPlayer.play();
+        
+        // Start video playback when music starts
+        widget.videoController.play();
+        setState(() => _isVideoPlaying = true);
+      } else {
+        throw Exception('Failed to get audio URL from response');
       }
     } catch (e) {
       setState(() => _errorMessage = 'Failed to generate music: $e');
@@ -227,7 +221,7 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                     // Prompt input
                     if (!_isGenerating && !_hasGenerated) ...[
                       Text(
-                        'Describe your perfect background music:',
+                        'Enter your song lyrics:',
                         style: gemText.copyWith(
                           color: silver,
                           fontSize: 16,
@@ -247,7 +241,7 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                           style: gemText.copyWith(color: silver),
                           maxLines: 3,
                           decoration: InputDecoration(
-                            hintText: 'e.g., "A peaceful, ambient melody with gentle synths and soft piano"',
+                            hintText: 'Enter your lyrics here (max 400 characters)',
                             hintStyle: gemText.copyWith(
                               color: silver.withOpacity(0.5),
                               fontSize: 14,
