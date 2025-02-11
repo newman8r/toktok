@@ -463,76 +463,96 @@ class CloudinaryService {
         })
         ..files.add(await http.MultipartFile.fromPath('file', tempFile.path));
 
+      print('🚀 Sending audio upload request to Cloudinary...');
       final audioStreamedResponse = await audioRequest.send();
       final audioResponse = await http.Response.fromStream(audioStreamedResponse);
 
+      print('📥 Audio upload response status: ${audioResponse.statusCode}');
+      print('📥 Audio upload response body: ${audioResponse.body}');
+
       if (audioResponse.statusCode != 200) {
-        throw Exception('Failed to upload audio: ${audioResponse.body}');
+        throw Exception('Failed to upload audio to Cloudinary: ${audioResponse.statusCode} - ${audioResponse.body}');
       }
 
-      final audioResponseData = json.decode(audioResponse.body);
+      Map<String, dynamic> audioResponseData;
+      try {
+        audioResponseData = json.decode(audioResponse.body);
+      } catch (e) {
+        print('❌ Failed to parse audio upload response: $e');
+        throw Exception('Invalid response from Cloudinary during audio upload');
+      }
+
       final audioCloudinaryUrl = audioResponseData['secure_url'] as String?;
       if (audioCloudinaryUrl == null) {
         throw Exception('Failed to get audio URL from response');
       }
 
-      print('Audio uploaded successfully: $audioCloudinaryUrl');
+      print('✅ Audio uploaded successfully: $audioCloudinaryUrl');
 
-      // Extract public ID from original video URL
-      final Uri uri = Uri.parse(videoUrl);
-      final String path = uri.path;
-      final String originalPublicId = path.split('/').last.split('.').first;
-      final String newPublicId = '${originalPublicId}_audio_${_generatePublicId().substring(0, 8)}';
-      
       // Create the eager transformation array using the Cloudinary audio public ID
       final eagerTransformation = 'vc_auto/du_${audioDuration.inSeconds}/l_video:$audioPublicId,fl_layer_apply';
 
       // Parameters to sign (in alphabetical order, excluding file, cloud_name, resource_type, and api_key)
       final paramsToSign = {
         'eager': eagerTransformation,
-        'public_id': newPublicId,
+        'public_id': 'combined_${_generatePublicId()}',
         'timestamp': timestamp.toString(),
         'type': 'upload',
       };
 
+      print('📝 Parameters to sign:');
+      paramsToSign.forEach((key, value) => print('   $key: $value'));
+
       final signature = _generateSignature(paramsToSign);
 
-      // Create multipart request
-      final url = Uri.parse('$_baseUrl/video/upload');
-      final request = http.MultipartRequest('POST', url)
+      // Create multipart request for video upload
+      final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/video/upload'))
         ..fields.addAll({
           'api_key': _apiKey,
           'timestamp': timestamp.toString(),
           'signature': signature,
-          'public_id': newPublicId,
+          'public_id': paramsToSign['public_id']!,
           'resource_type': 'video',
           'type': 'upload',
           'eager': eagerTransformation,
           'file': videoUrl,
         });
 
+      print('🎥 Sending video upload request to Cloudinary...');
+      print('🔑 Request fields:');
+      request.fields.forEach((key, value) => print('   $key: $value'));
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+
+      print('📥 Video upload response status: ${response.statusCode}');
+      print('📥 Video upload response body: ${response.body}');
 
       // Clean up temporary files
       await tempFile.delete();
       await tempDir.delete();
 
       if (response.statusCode != 200) {
-        throw Exception('Failed to create new video: ${response.body}');
+        throw Exception('Failed to create new video: ${response.statusCode} - ${response.body}');
       }
 
-      final responseData = json.decode(response.body);
-      final secureUrl = responseData['eager']?[0]?['secure_url'] as String?;
+      Map<String, dynamic> responseData;
+      try {
+        responseData = json.decode(response.body);
+      } catch (e) {
+        print('❌ Failed to parse video upload response: $e');
+        throw Exception('Invalid response from Cloudinary during video upload');
+      }
 
+      final secureUrl = responseData['eager']?[0]?['secure_url'] as String?;
       if (secureUrl == null) {
         throw Exception('Failed to get secure URL from response');
       }
 
-      print('Successfully created new video with audio: $secureUrl');
+      print('✅ Successfully created new video with audio: $secureUrl');
       return secureUrl;
     } catch (e) {
-      print('Error in addAudioToVideo: $e');
+      print('❌ Error in addAudioToVideo: $e');
       rethrow;
     }
   }

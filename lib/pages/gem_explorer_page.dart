@@ -30,6 +30,7 @@ import '../services/cloudinary_service.dart';
 import 'gem_gallery_page.dart';
 import 'package:just_audio/just_audio.dart';
 import 'ai_music_page.dart';
+import 'ai_music_magic_page.dart';
 
 // Helper classes for animations and UI
 class _TrashFly {
@@ -288,7 +289,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   
   // Mystical content for exploration
   final List<Map<String, dynamic>> _editOptions = [
-    {'type': 'edit', 'content': '🎨', 'name': 'Style Transfer', 'description': 'Apply artistic styles', 'direction': 'topLeft'},
+    {'type': 'edit', 'content': '🔮', 'name': 'AI Music Magic', 'description': 'Generate magical music', 'direction': 'topLeft'},
     {'type': 'edit', 'content': '✨', 'name': 'Enhance', 'description': 'Improve video quality', 'direction': 'topRight'},
     {'type': 'edit', 'content': '🎵', 'name': 'AI Music', 'description': 'Generate background music', 'direction': 'right'},
     {'type': 'edit', 'content': '⚡', 'name': 'Effects', 'description': 'Add visual effects', 'direction': 'bottomRight'},
@@ -641,6 +642,46 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                       };
                     });
                   },
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    } else if (option['name'] == 'AI Music Magic') {
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      final videoUrlToEdit = _videoController.dataSource;
+      if (videoUrlToEdit == null) {
+        print('Error: No video URL available from controller');
+        return;
+      }
+      
+      await showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'AI Music Magic',
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return Stack(
+            children: [
+              // Glass effect background
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    color: deepCave.withOpacity(0.5),
+                  ),
+                ),
+              ),
+              
+              // AI Music Magic page with fade transition
+              FadeTransition(
+                opacity: animation,
+                child: AIMusicMagicPage(
+                  videoPath: widget.recordedVideo.path,
+                  videoController: _videoController,
                 ),
               ),
             ],
