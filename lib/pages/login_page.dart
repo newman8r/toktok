@@ -386,7 +386,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Enter your mining credentials',
+                                    'You know what to do',
                                     style: gemText.copyWith(
                                       color: silver,
                                       fontSize: 16,
@@ -471,7 +471,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                       HapticFeedback.lightImpact();
                                     },
                                     child: Text(
-                                      'Forgot Your Mining Code?',
+                                      'Forgetful? Set a new pass',
                                       style: gemText.copyWith(
                                         color: silver.withOpacity(0.7),
                                         fontSize: 14,

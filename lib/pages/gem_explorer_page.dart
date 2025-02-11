@@ -29,6 +29,7 @@ import '../services/gem_service.dart';
 import '../services/cloudinary_service.dart';
 import 'gem_gallery_page.dart';
 import 'package:just_audio/just_audio.dart';
+import 'ai_music_page.dart';
 
 // Helper classes for animations and UI
 class _TrashFly {
@@ -289,7 +290,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   final List<Map<String, dynamic>> _editOptions = [
     {'type': 'edit', 'content': '🎨', 'name': 'Style Transfer', 'description': 'Apply artistic styles', 'direction': 'topLeft'},
     {'type': 'edit', 'content': '✨', 'name': 'Enhance', 'description': 'Improve video quality', 'direction': 'topRight'},
-    {'type': 'edit', 'content': '🎵', 'name': 'Audio', 'description': 'Add or modify audio', 'direction': 'right'},
+    {'type': 'edit', 'content': '🎵', 'name': 'AI Music', 'description': 'Generate background music', 'direction': 'right'},
     {'type': 'edit', 'content': '⚡', 'name': 'Effects', 'description': 'Add visual effects', 'direction': 'bottomRight'},
     {'type': 'edit', 'content': '✂️', 'name': 'Trim', 'description': 'Edit video length', 'direction': 'bottomLeft'},
     {'type': 'edit', 'content': '🔄', 'name': 'Transform', 'description': 'Rotate or flip', 'direction': 'left'},
@@ -577,7 +578,6 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   }
 
   // Handles the selection of an edit option (like trim, effects, etc.)
-  // Creates a spatial transition and shows appropriate UI for the selected option
   void _handleEditOption(Map<String, dynamic> option) async {
     HapticFeedback.mediumImpact();
     
@@ -589,7 +589,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     // First, perform the spatial navigation
     await _navigate(direction);
     
-    // If this is the trim option, show the crop view
+    // Handle different edit options
     if (option['name'] == 'Trim') {
       // Add a slight delay to ensure navigation is complete
       await Future.delayed(const Duration(milliseconds: 100));
@@ -647,6 +647,49 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
           );
         },
       );
+    } else if (option['name'] == 'AI Music') {
+      // Add a slight delay to ensure navigation is complete
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Show the AI Music page with glass effect overlay
+      final result = await showGeneralDialog<String>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'AI Music',
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return Stack(
+            children: [
+              // Glass effect background
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    color: deepCave.withOpacity(0.5),
+                  ),
+                ),
+              ),
+              
+              // AI Music page with fade transition
+              FadeTransition(
+                opacity: animation,
+                child: AIMusicPage(
+                  videoPath: widget.recordedVideo.path,
+                  videoController: _videoController,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (result != null) {
+        // User accepted the generated music
+        print('Generated music URL: $result');
+        // TODO: Handle the accepted music URL
+        // We'll implement Cloudinary integration later
+      }
     }
   }
 
@@ -656,7 +699,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     // Get edit options for surrounding tiles in the correct positions
     final topLeft = _editOptions[0];     // Style Transfer
     final topRight = _editOptions[1];    // Enhance
-    final right = _editOptions[2];       // Audio
+    final right = _editOptions[2];       // AI Music
     final bottomRight = _editOptions[3]; // Effects
     final bottomLeft = _editOptions[4];  // Trim
     final left = _editOptions[5];        // Transform
@@ -698,7 +741,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
                     SizedBox(width: constraints.maxWidth * 0.02),
                     _buildGemTile(content: centerContent, isCenter: true),
                     SizedBox(width: constraints.maxWidth * 0.02),
-                    _buildGemTile(content: right),      // Audio (right)
+                    _buildGemTile(content: right),      // AI Music (right)
                   ],
                 ),
               ),
@@ -1340,7 +1383,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
       await Future.delayed(const Duration(milliseconds: 1500));
 
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => 
               const GemGalleryPage(),
@@ -1355,6 +1398,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             },
             transitionDuration: caveTransition,
           ),
+          (route) => false,  // Remove all previous routes
         );
       }
     } catch (e) {

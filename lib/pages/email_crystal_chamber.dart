@@ -166,19 +166,21 @@ class _EmailCrystalChamberState extends State<EmailCrystalChamber> with TickerPr
                         onPressed: () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 16),
-                      Text(
-                        'Share Crystal Link',
-                        style: crystalHeading.copyWith(
-                          fontSize: 24,
-                          foreground: Paint()
-                            ..shader = LinearGradient(
-                              colors: [
-                                sapphire,
-                                sapphire.withOpacity(0.7),
-                              ],
-                            ).createShader(
-                              const Rect.fromLTWH(0, 0, 200, 70)
-                            ),
+                      Flexible(
+                        child: Text(
+                          'Share Crystal Link',
+                          style: crystalHeading.copyWith(
+                            fontSize: 24,
+                            foreground: Paint()
+                              ..shader = LinearGradient(
+                                colors: [
+                                  sapphire,
+                                  sapphire.withOpacity(0.7),
+                                ],
+                              ).createShader(
+                                const Rect.fromLTWH(0, 0, 200, 70)
+                              ),
+                          ),
                         ),
                       ),
                     ],
