@@ -37,6 +37,7 @@ dependencies:
   image_picker: ^1.0.7  # Required by video_editor
   video_thumbnail: ^0.5.3
   ffmpeg_kit_flutter_min_gpl: 6.0.3  # Using min_gpl version for video editing
+  geolocator: ^10.1.0
 
 dev_dependencies:
   flutter_test:
