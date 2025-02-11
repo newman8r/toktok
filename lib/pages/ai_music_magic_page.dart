@@ -4,6 +4,8 @@ import 'package:video_player/video_player.dart';
 import '../theme/gem_theme.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import '../services/contextual_music_service.dart';
+import '../services/openai_service.dart';
 
 class AIMusicMagicPage extends StatefulWidget {
   final String videoPath;
@@ -23,6 +25,10 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _crystalBallController;
   bool _isMagicStarted = false;
+  final ContextualMusicService _contextService = ContextualMusicService();
+  final OpenAIService _openAIService = OpenAIService();
+  String? _errorMessage;
+  String? _generatedLyrics;
 
   @override
   void initState() {
@@ -31,6 +37,67 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     )..repeat();
+  }
+
+  Future<void> _startMagic() async {
+    try {
+      setState(() {
+        _isMagicStarted = true;
+        _errorMessage = null;
+        _generatedLyrics = null;
+      });
+      
+      print('🔮 Starting Crystal Magic...');
+      HapticFeedback.mediumImpact();
+
+      // Get unified context
+      print('🌍 Gathering mystical energies from your surroundings...');
+      final context = await _contextService.getUnifiedContext();
+      
+      // Log the gathered context
+      print('\n✨ Magical Context Gathered ✨');
+      print('🌤️  Weather: ${context.weather.description}');
+      print('🌡️  Temperature: ${context.weather.temperature}°C');
+      print('🌅 Time of Day: ${context.weather.timeOfDay}');
+      print('🎭 Weather Mood: ${context.weather.mood}');
+      
+      print('\n📍 Location Vibes:');
+      print('🏢 Place: ${context.location.locationName}');
+      print('🌟 Vibe Words: ${context.location.vibeWords.join(", ")}');
+      print('🎵 Ambiance: ${context.location.ambiance}');
+      print('👥 Crowd Level: ${context.location.crowdLevel}');
+      
+      print('\n📅 Time Context:');
+      print('📆 ${context.calendar.dayOfWeek}, ${context.calendar.month} ${context.calendar.dayOfMonth}');
+      print('🍂 Season: ${context.calendar.season}');
+      print('⏰ Time: ${context.calendar.timeOfDay}');
+      
+      print('\n🎼 Musical Inspiration:');
+      print('🎵 Suggested Style: ${context.determineMusicStyle()}');
+      print('✍️ Lyrical Theme: ${context.generateLyricalTheme()}');
+
+      // Generate lyrics with OpenAI
+      final locationVibe = '${context.location.ambiance} ${context.location.vibeWords.join(" ")}';
+      final timeContext = '${context.calendar.timeOfDay} in ${context.calendar.season}';
+      
+      _generatedLyrics = await _openAIService.generateLyrics(
+        musicStyle: context.determineMusicStyle(),
+        weatherMood: context.weather.mood,
+        timeContext: timeContext,
+        locationVibe: locationVibe,
+        temperature: context.weather.temperature.toString(),
+        weatherDescription: context.weather.description,
+      );
+      
+      // TODO: In the next step, we'll use these lyrics with Uberduck!
+      
+    } catch (e) {
+      print('❌ Error during magic gathering: $e');
+      setState(() {
+        _errorMessage = 'Failed to gather magical context: $e';
+        _isMagicStarted = false;
+      });
+    }
   }
 
   @override
@@ -167,7 +234,7 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
 
   Widget _buildMagicButton() {
     return GestureDetector(
-      onTapDown: (_) => HapticFeedback.mediumImpact(),
+      onTapDown: (_) => _startMagic(),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: 32,
@@ -232,6 +299,17 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
             fontSize: 14,
           ),
         ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage!,
+            style: gemText.copyWith(
+              color: ruby,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ],
     );
   }
