@@ -31,6 +31,7 @@ import 'gem_gallery_page.dart';
 import 'package:just_audio/just_audio.dart';
 import 'ai_music_page.dart';
 import 'ai_music_magic_page.dart';
+import 'ai_object_detection_page.dart';
 
 // Helper classes for animations and UI
 class _TrashFly {
@@ -294,7 +295,7 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     {'type': 'edit', 'content': '🎵', 'name': 'AI Music', 'description': 'Generate background music', 'direction': 'right'},
     {'type': 'edit', 'content': '⚡', 'name': 'Effects', 'description': 'Add visual effects', 'direction': 'bottomRight'},
     {'type': 'edit', 'content': '✂️', 'name': 'Trim', 'description': 'Edit video length', 'direction': 'bottomLeft'},
-    {'type': 'edit', 'content': '🔄', 'name': 'Transform', 'description': 'Rotate or flip', 'direction': 'left'},
+    {'type': 'edit', 'content': '👁️', 'name': 'AI Object Detect', 'description': 'Discover hidden treasures', 'direction': 'left'},
   ];
 
   // Navigation directions with their offsets and angles
@@ -731,6 +732,46 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
         // TODO: Handle the accepted music URL
         // We'll implement Cloudinary integration later
       }
+    } else if (option['name'] == 'AI Object Detect') {
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      final videoUrlToEdit = _videoController.dataSource;
+      if (videoUrlToEdit == null) {
+        print('Error: No video URL available from controller');
+        return;
+      }
+      
+      await showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'AI Object Detection',
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return Stack(
+            children: [
+              // Glass effect background
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    color: deepCave.withOpacity(0.5),
+                  ),
+                ),
+              ),
+              
+              // AI Object Detection page with fade transition
+              FadeTransition(
+                opacity: animation,
+                child: AIObjectDetectionPage(
+                  videoUrl: videoUrlToEdit,
+                  videoController: _videoController,
+                ),
+              ),
+            ],
+          );
+        },
+      );
     }
   }
 
