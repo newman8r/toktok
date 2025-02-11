@@ -7,6 +7,9 @@ import 'dart:ui' as ui;
 import '../services/contextual_music_service.dart';
 import '../services/openai_service.dart';
 import '../services/uberduck_service.dart';
+import '../services/cloudinary_service.dart';
+import '../services/gem_service.dart';
+import '../services/auth_service.dart';
 import 'package:just_audio/just_audio.dart';
 
 class AIMusicMagicPage extends StatefulWidget {
@@ -132,12 +135,26 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
         print('✨ Generated Lyrics:\n$_generatedLyrics');
         
         // Ensure lyrics are within 400 character limit
-        if (_generatedLyrics!.length > 400) {
-          print('⚠️ Truncating lyrics to 400 characters');
-          // Find the last complete word before 400 chars
-          final truncated = _generatedLyrics!.substring(0, 400);
-          final lastSpace = truncated.lastIndexOf(' ');
-          _generatedLyrics = truncated.substring(0, lastSpace) + '...';
+        if (_generatedLyrics != null && _generatedLyrics!.length > 400) {
+          print('⚠️ Truncating lyrics to fit 400 character limit');
+          print('📏 Original length: ${_generatedLyrics!.length}');
+          
+          // Start with full text truncated at 400
+          String truncated = _generatedLyrics!;
+          
+          // Keep removing words from the end until we're under 400 chars
+          while (truncated.length > 397) { // 397 to leave room for '...'
+            final lastSpaceIndex = truncated.lastIndexOf(' ');
+            if (lastSpaceIndex == -1) {
+              // If no spaces found, just hard truncate
+              truncated = truncated.substring(0, 397);
+              break;
+            }
+            truncated = truncated.substring(0, lastSpaceIndex);
+          }
+          
+          _generatedLyrics = '$truncated...';
+          print('📏 New length: ${_generatedLyrics!.length}');
           print('📝 Truncated Lyrics:\n$_generatedLyrics');
         }
         
@@ -171,7 +188,7 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
             _isGeneratingMusic = false;
           });
           
-          // Load and play the audio
+          // Load and play the audio preview
           await _audioPlayer.setUrl(_generatedAudioUrl!);
           _audioPlayer.play();
           
@@ -197,6 +214,56 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
         _errorMessage = 'Failed to gather context: $e';
         _isMagicStarted = false;
         _isGeneratingLyrics = false;
+        _isGeneratingMusic = false;
+      });
+    }
+  }
+
+  Future<void> _saveWithAudio() async {
+    try {
+      setState(() => _isGeneratingMusic = true);
+      
+      // Get audio duration
+      final duration = await _audioPlayer.duration;
+      if (duration == null) throw Exception('Could not get audio duration');
+      
+      print('🎵 Audio duration: ${duration.inSeconds} seconds');
+      print('🎥 Processing video with Cloudinary...');
+      
+      // Create new video with audio
+      final cloudinaryService = CloudinaryService();
+      final newVideoUrl = await cloudinaryService.addAudioToVideo(
+        videoUrl: widget.videoController.dataSource!,
+        audioUrl: _generatedAudioUrl!,
+        audioDuration: duration,
+      );
+      
+      print('✨ Combined video URL: $newVideoUrl');
+      
+      // Save to gallery
+      final gemService = GemService();
+      final user = AuthService().currentUser;
+      if (user == null) throw Exception('User not authenticated');
+      
+      final publicId = newVideoUrl.split('/').last.split('.').first;
+      
+      await gemService.createGem(
+        userId: user.uid,
+        title: 'Crystal Melody',
+        description: 'Video with AI-generated $_selectedStyle music',
+        cloudinaryUrl: newVideoUrl,
+        cloudinaryPublicId: publicId,
+        bytes: 0,  // Skip actual file size since we're using Cloudinary URL
+        tags: ['ai_music', 'crystal_melody', _selectedStyle.toLowerCase()],
+      );
+      
+      if (mounted) {
+        Navigator.pop(context, newVideoUrl);
+      }
+    } catch (e) {
+      print('❌ Error saving video with audio: $e');
+      setState(() {
+        _errorMessage = 'Failed to save video: $e';
         _isGeneratingMusic = false;
       });
     }
@@ -509,6 +576,42 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
                 },
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: _saveWithAudio,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    emerald.withOpacity(0.3),
+                    sapphire.withOpacity(0.3),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(emeraldCut),
+                border: Border.all(
+                  color: emerald.withOpacity(0.5),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: emerald.withOpacity(0.2),
+                    blurRadius: 15,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Text(
+                'Save Crystal Melody 💎',
+                style: crystalHeading.copyWith(
+                  fontSize: 20,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ),
           ),
         ],
         if (_errorMessage != null) ...[
