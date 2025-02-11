@@ -9,6 +9,8 @@ import 'gem_gallery_page.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class AIVideoGeneratorPage extends StatefulWidget {
   const AIVideoGeneratorPage({super.key});
@@ -55,7 +57,10 @@ class _AIVideoGeneratorPageState extends State<AIVideoGeneratorPage> with Single
     });
 
     try {
+      print('🎬 Starting AI video generation flow...');
+      
       // Generate video with Replicate
+      print('🤖 Generating video with Replicate...');
       final result = await _replicateService.generateVideo(
         prompt: _promptController.text,
       );
@@ -63,52 +68,80 @@ class _AIVideoGeneratorPageState extends State<AIVideoGeneratorPage> with Single
       if (!mounted) return;
 
       if (result['status'] == 'succeeded' && result['output'] != null) {
-        final videoUrl = result['output'] as String;
+        final replicateUrl = result['output'] as String;
+        print('✨ Replicate video generated: $replicateUrl');
         
         // Get current user
         final user = _authService.currentUser;
         if (user == null) throw Exception('User not authenticated');
 
-        // Create gem in Firestore with the Replicate URL directly
+        print('🌟 Uploading video to Cloudinary...');
+        // Initialize Cloudinary service
+        final cloudinaryService = CloudinaryService();
+        
+        // Download video from Replicate and upload to Cloudinary
+        final response = await http.get(Uri.parse(replicateUrl));
+        if (response.statusCode != 200) {
+          throw Exception('Failed to download video from Replicate');
+        }
+
+        // Create a temporary file
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/temp_video.mp4');
+        await tempFile.writeAsBytes(response.bodyBytes);
+        
+        print('📤 Uploading to Cloudinary...');
+        // Upload to Cloudinary
+        final cloudinaryUrl = await cloudinaryService.uploadVideo(
+          tempFile,
+          publicId: 'ai_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        
+        if (cloudinaryUrl == null) {
+          throw Exception('Failed to upload video to Cloudinary');
+        }
+        
+        print('🎯 Video uploaded to Cloudinary: $cloudinaryUrl');
+
+        // Create gem in Firestore with the Cloudinary URL
         await _gemService.createGem(
           userId: user.uid,
           title: 'AI Generated: ${_promptController.text.substring(0, math.min(30, _promptController.text.length))}...',
           description: _promptController.text,
-          cloudinaryUrl: videoUrl,  // Use Replicate URL directly
+          cloudinaryUrl: cloudinaryUrl,  // Use Cloudinary URL instead of Replicate URL
           cloudinaryPublicId: 'ai_${DateTime.now().millisecondsSinceEpoch}',
           bytes: 0,
           tags: ['ai_generated', 'replicate'],
         );
 
-        if (!mounted) return;
+        // Clean up temp file
+        await tempFile.delete();
+        
+        print('✅ AI video generation flow completed successfully!');
 
-        // Navigate to gallery and refresh
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => 
-              const GemGalleryPage(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              const begin = Offset(1.0, 0.0);
-              const end = Offset.zero;
-              const curve = Curves.easeInOutQuart;
-              var tween = Tween(begin: begin, end: end)
-                  .chain(CurveTween(curve: curve));
-              var offsetAnimation = animation.drive(tween);
-              return SlideTransition(position: offsetAnimation, child: child);
-            },
-            transitionDuration: caveTransition,
+        if (!mounted) return;
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✨ Your magical video has been created!'),
+            backgroundColor: Colors.green,
           ),
         );
+
+        // Navigate back
+        Navigator.of(context).pop();
       } else {
-        throw Exception('Failed to generate video');
+        throw Exception('Video generation failed or output was null');
       }
     } catch (e) {
+      print('❌ Error in video generation flow: $e');
       if (!mounted) return;
-      setState(() {
-        _error = 'Failed to generate video: $e';
-        _isGenerating = false;
-      });
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
     }
   }
 
