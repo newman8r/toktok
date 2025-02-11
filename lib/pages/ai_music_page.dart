@@ -360,7 +360,6 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                                 final user = AuthService().currentUser;
                                 if (user == null) throw Exception('User not authenticated');
                                 
-                                final videoFile = File(widget.videoPath);
                                 final publicId = newVideoUrl.split('/').last.split('.').first;
                                 
                                 await gemService.createGem(
@@ -369,7 +368,7 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                                   description: 'Video with AI-generated music',
                                   cloudinaryUrl: newVideoUrl,
                                   cloudinaryPublicId: publicId,
-                                  bytes: await videoFile.length(),
+                                  bytes: 0,  // Skip actual file size since we're using Cloudinary URL
                                   tags: ['ai_music', 'crystal_melody'],
                                 );
                                 

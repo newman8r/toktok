@@ -485,7 +485,7 @@ class CloudinaryService {
       final String newPublicId = '${originalPublicId}_audio_${_generatePublicId().substring(0, 8)}';
       
       // Create the eager transformation array using the Cloudinary audio public ID
-      final eagerTransformation = 'du_${audioDuration.inSeconds},so_0,eo_${audioDuration.inSeconds}/l_video:$audioPublicId,fl_splice,so_0';
+      final eagerTransformation = 'vc_auto/du_${audioDuration.inSeconds}/l_video:$audioPublicId,fl_layer_apply';
 
       // Parameters to sign (in alphabetical order, excluding file, cloud_name, resource_type, and api_key)
       final paramsToSign = {
