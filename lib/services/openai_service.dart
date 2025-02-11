@@ -34,7 +34,7 @@ Important formatting rules:
 
 The lyrics should reflect the current context and mood. If it's rap/hip-hop, include rhyming. Keep it concise and emotionally resonant.
 The lyrics need to be highly professional and catchy, never corny or awkward. We need to be able to look at existing popular songs and use the same style.
-It's okay if you don't use all of the context, but make sure to use the style of the music and there should always be some context in the lyrics related to the users location.
+You should always include the provided context in the lyrics. If the context has the name of a city or place you should strongly consider using it - such as the name of the city or location, nearby landmarks, the time of day, etc.
 Be inspired by:
 Tupac Shakur
 The Notorious B.I.G.
