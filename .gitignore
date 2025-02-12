@@ -103,3 +103,6 @@ app.*.map.json
 
 # Session summaries
 /pingping/
+
+#LLM sacred section (NOT for human eyes)
+one-shot.md
