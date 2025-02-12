@@ -279,8 +279,13 @@ class CloudinaryService {
     }
   }
 
-  Future<bool> deleteVideo(String publicId) async {
+  Future<bool> deleteVideo(String? publicId) async {
     try {
+      if (publicId == null) {
+        print('❌ Cannot delete video: publicId is null');
+        return false;
+      }
+
       final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
       // Parameters to sign (in alphabetical order)
@@ -435,13 +440,7 @@ class CloudinaryService {
       }
 
       print('🚀 Request fields:');
-      request.fields.forEach((key, value) {
-        if (key == 'api_key') {
-          print('   $key: ${value.substring(0, 4)}...${value.substring(value.length - 4)}');
-        } else {
-          print('   $key: $value');
-        }
-      });
+      request.fields.forEach((key, value) => print('   $key: $value'));
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);

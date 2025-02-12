@@ -4,12 +4,14 @@ class GemModel {
   final String title;
   final String description;
   final String cloudinaryUrl;
-  final String cloudinaryPublicId;
+  final String? cloudinaryPublicId;
   final int bytes;
   final List<String> tags;
   final List<String> likes;
   final DateTime createdAt;
   final String? sourceGemId;
+  final String? lyrics;
+  final String? style_preset;
 
   GemModel({
     required this.id,
@@ -17,12 +19,14 @@ class GemModel {
     required this.title,
     required this.description,
     required this.cloudinaryUrl,
-    required this.cloudinaryPublicId,
+    this.cloudinaryPublicId,
     required this.bytes,
     this.tags = const [],
     this.likes = const [],
     required this.createdAt,
     this.sourceGemId,
+    this.lyrics,
+    this.style_preset,
   });
 
   String get thumbnailUrl => cloudinaryUrl.replaceAll(
@@ -43,6 +47,8 @@ class GemModel {
       'likes': likes,
       'createdAt': createdAt.toIso8601String(),
       'sourceGemId': sourceGemId,
+      'lyrics': lyrics,
+      'style_preset': style_preset,
     };
   }
 
@@ -53,12 +59,14 @@ class GemModel {
       title: map['title'] as String,
       description: map['description'] as String,
       cloudinaryUrl: map['cloudinaryUrl'] as String,
-      cloudinaryPublicId: map['cloudinaryPublicId'] as String,
+      cloudinaryPublicId: map['cloudinaryPublicId'] as String?,
       bytes: map['bytes'] as int,
       tags: List<String>.from(map['tags'] ?? []),
       likes: List<String>.from(map['likes'] ?? []),
       createdAt: DateTime.parse(map['createdAt'] as String),
       sourceGemId: map['sourceGemId'] as String?,
+      lyrics: map['lyrics'] as String?,
+      style_preset: map['style_preset'] as String?,
     );
   }
 
@@ -74,6 +82,8 @@ class GemModel {
     List<String>? likes,
     DateTime? createdAt,
     String? sourceGemId,
+    String? lyrics,
+    String? style_preset,
   }) {
     return GemModel(
       id: id ?? this.id,
@@ -87,6 +97,8 @@ class GemModel {
       likes: likes ?? this.likes,
       createdAt: createdAt ?? this.createdAt,
       sourceGemId: sourceGemId ?? this.sourceGemId,
+      lyrics: lyrics ?? this.lyrics,
+      style_preset: style_preset ?? this.style_preset,
     );
   }
 } 

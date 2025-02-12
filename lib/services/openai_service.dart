@@ -8,57 +8,12 @@ class OpenAIService {
   static final String _model = dotenv.env['OPENAI_MODEL'] ?? 'gpt-4';
 
   Future<String> generateLyrics({
-    required String musicStyle,
-    required String weatherMood,
-    required String timeContext,
-    required String locationVibe,
-    required String temperature,
-    required String weatherDescription,
+    required String prompt,
+    required int maxLength,
   }) async {
     try {
       print('🎭 Crafting lyrical inspiration...');
       
-      final prompt = '''
-Create song lyrics (maximum 400 characters) in the style of $musicStyle music.
-Context:
-- Weather: $weatherDescription ($temperature°C, mood: $weatherMood)
-- Time: $timeContext
-- Location vibe: $locationVibe
-
-Important formatting rules:
-1. Do NOT include any section labels (like 'Verse', 'Chorus', 'Bridge', etc.)
-2. Do NOT include any formatting or metadata
-3. Just write the lyrics as continuous text
-4. Use commas or line breaks naturally within the text
-5. Keep it under 400 characters total
-
-The lyrics should reflect the current context and mood. If it's rap/hip-hop, include rhyming. Keep it concise and emotionally resonant.
-The lyrics need to be highly professional and catchy, never corny or awkward. We need to be able to look at existing popular songs and use the same style.
-You should always include the provided context in the lyrics. If the context has the name of a city or place you should strongly consider using it - such as the name of the city or location, nearby landmarks, the time of day, etc.
-Be inspired by:
-Tupac Shakur
-The Notorious B.I.G.
-Kendrick Lamar
-Jay-Z
-Eminem
-Missy Elliott
-OutKast
-Nas
-Drake
-Lauryn Hill
-Michael Jackson
-Madonna
-Beyoncé
-Prince
-The Beatles
-Queen
-Pink Floyd
-Daft Punk
-Aphex Twin
-Kanye West
-and other artists at the top of their game.
-''';
-
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/completions'),
         headers: {
@@ -70,7 +25,13 @@ and other artists at the top of their game.
           'messages': [
             {
               'role': 'system',
-              'content': 'You are a skilled songwriter who creates clean, formatted lyrics without any meta information or section labels. Return only the actual lyrics text.',
+              'content': '''You are a skilled hip-hop songwriter who creates clean, formatted lyrics without any meta information or section labels.
+Return only the actual lyrics text. The lyrics must be under $maxLength characters.
+IMPORTANT: Use ONLY standard ASCII characters (a-z, A-Z, 0-9, and basic punctuation like .,!?). 
+DO NOT use any special characters, smart quotes, em dashes, or any Unicode characters.
+DO NOT include any formatting, verse numbers, or section labels.
+Write in a natural, flowing style that could be performed.
+Keep it simple and clean - this will be processed by text-to-speech so avoid any fancy typography.''',
             },
             {
               'role': 'user',
@@ -84,11 +45,23 @@ and other artists at the top of their game.
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final lyrics = data['choices'][0]['message']['content'].trim();
+        var lyrics = data['choices'][0]['message']['content'].trim();
+        
+        // Sanitize the lyrics to ensure only ASCII characters
+        lyrics = _sanitizeText(lyrics);
+        
+        // Ensure lyrics are under maxLength by removing whole words
+        while (lyrics.length > maxLength) {
+          final lastSpaceIndex = lyrics.lastIndexOf(' ');
+          if (lastSpaceIndex == -1) {
+            lyrics = lyrics.substring(0, maxLength);
+          } else {
+            lyrics = lyrics.substring(0, lastSpaceIndex);
+          }
+        }
         
         print('\n🎵 Generated Lyrics 🎵');
-        print('📝 Style: $musicStyle');
-        print('✨ Context: $timeContext, $weatherMood, $locationVibe');
+        print('📝 Length: ${lyrics.length} characters');
         print('🎤 Lyrics:\n$lyrics');
         
         return lyrics;
@@ -99,5 +72,42 @@ and other artists at the top of their game.
       print('❌ Error generating lyrics: $e');
       rethrow;
     }
+  }
+
+  String _sanitizeText(String text) {
+    // First, normalize all apostrophes and quotes to simple ASCII versions
+    text = text
+      .replaceAll("\u2018", "'")  // Left single quote
+      .replaceAll("\u2019", "'")  // Right single quote
+      .replaceAll("\u201C", "\"")  // Left double quote
+      .replaceAll("\u201D", "\"")  // Right double quote
+      .replaceAll("`", "'")
+      .replaceAll("\u00B4", "'")  // Acute accent
+      .replaceAll("\u2032", "'")  // Prime
+      .replaceAll("\u00E2", "'")  // a circumflex
+      .replaceAll("\u20AC\u2122", "'")  // Euro sign + TM
+      .replaceAll("\u20AC\u201C", "\"")  // Euro sign + left double quote
+      .replaceAll("\u20AC", "'");  // Euro sign
+    
+    // Replace em/en dashes with regular hyphens
+    text = text
+      .replaceAll("\u2014", "-")  // Em dash
+      .replaceAll("\u2013", "-")  // En dash
+      .replaceAll("\u2010", "-")  // Hyphen
+      .replaceAll("\u2011", "-")  // Non-breaking hyphen
+      .replaceAll("\u2012", "-")  // Figure dash
+      .replaceAll("\u2015", "-")  // Horizontal bar
+      .replaceAll("\u2212", "-"); // Minus sign
+    
+    // Replace ellipsis with three periods
+    text = text.replaceAll("\u2026", "...");
+    
+    // Remove any remaining non-ASCII characters
+    text = text.replaceAll(RegExp(r'[^\x00-\x7F]'), '');
+    
+    // Clean up any double spaces and trim
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    
+    return text;
   }
 } 

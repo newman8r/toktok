@@ -124,12 +124,12 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
       
       try {
         _generatedLyrics = await _openAIService.generateLyrics(
-          musicStyle: _selectedStyle,
-          weatherMood: context.weather.mood,
-          timeContext: timeContext,
-          locationVibe: locationVibe,
-          temperature: context.weather.temperature.toString(),
-          weatherDescription: context.weather.description,
+          prompt: '''Create hip-hop lyrics that rhyme well and have a strong flow. Theme: ${context.weather.mood} weather during $timeContext, in a $locationVibe setting.
+Use only standard characters (a-z, 0-9, basic punctuation). No special characters or emojis.
+Make it sound like a modern hip-hop track with clever wordplay and strong delivery.
+Temperature is ${context.weather.temperature}, weather is ${context.weather.description}.
+Style reference: $_selectedStyle hip-hop''',
+          maxLength: 400,  // Reduced to avoid truncation
         );
 
         print('✨ Generated Lyrics:\n$_generatedLyrics');
@@ -255,6 +255,8 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
         cloudinaryPublicId: publicId,
         bytes: 0,  // Skip actual file size since we're using Cloudinary URL
         tags: ['ai_music', 'crystal_melody', _selectedStyle.toLowerCase()],
+        style_preset: _selectedStyle,
+        lyrics: _generatedLyrics,  // Add lyrics since it's in the schema
       );
       
       if (mounted) {

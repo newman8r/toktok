@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/gem_model.dart';
 import 'cloudinary_service.dart';
 import 'auth_service.dart';
+import 'package:uuid/uuid.dart';
 
 class GemService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -15,35 +16,34 @@ class GemService {
     required String title,
     required String description,
     required String cloudinaryUrl,
-    required String cloudinaryPublicId,
+    String? cloudinaryPublicId,
     required int bytes,
-    List<String>? tags,
+    List<String> tags = const [],
+    String? lyrics,
+    String? style_preset,
     String? sourceGemId,
   }) async {
     try {
       print('🔍 Creating gem with userId: $userId');
       print('🔍 Cloudinary URL: $cloudinaryUrl');
-      if (sourceGemId != null) {
-        print('🔍 Creating as derivative of gem: $sourceGemId');
-      }
-      
-      final docRef = _firestore.collection(_collection).doc();
       
       final gem = GemModel(
-        id: docRef.id,
+        id: const Uuid().v4(),
         userId: userId,
         title: title,
         description: description,
         cloudinaryUrl: cloudinaryUrl,
         cloudinaryPublicId: cloudinaryPublicId,
         bytes: bytes,
-        tags: tags ?? [],
+        tags: tags,
         createdAt: DateTime.now(),
+        lyrics: lyrics,
+        style_preset: style_preset,
         sourceGemId: sourceGemId,
       );
 
       print('🔍 Gem data before saving: ${gem.toMap()}');
-      await docRef.set(gem.toMap());
+      await _firestore.collection(_collection).doc(gem.id).set(gem.toMap());
       print('✨ Gem created successfully with ID: ${gem.id}');
       return gem;
     } catch (e) {

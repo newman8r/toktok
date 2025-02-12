@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/gem_theme.dart';
 import '../services/video_analysis_service.dart';
+import '../services/openai_service.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 
@@ -22,10 +23,22 @@ class AIObjectDetectionPage extends StatefulWidget {
 
 class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with SingleTickerProviderStateMixin {
   final VideoAnalysisService _analysisService = VideoAnalysisService();
+  final OpenAIService _openAIService = OpenAIService();
   late AnimationController _crystalController;
   List<String> _detectedObjects = [];
   bool _isAnalyzing = false;
   String? _error;
+  String? _generatedLyrics;
+  String _selectedStyle = "Modern"; // Default style
+  String _currentStep = '';
+  
+  // Available music styles from Uberduck
+  final List<String> _musicStyles = [
+    "Abstract", "Boom Bap", "Cloud Rap", "Conscious", "Drill", 
+    "East Coast", "Grime", "Hardcore", "Lo-fi", "Melodic", 
+    "Modern", "Old School", "Party", "Southern", "Underground", 
+    "West Coast"
+  ];
 
   // Crystal shard animation properties
   final List<Map<String, dynamic>> _crystalShards = List.generate(12, (index) {
@@ -62,23 +75,55 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
     setState(() {
       _isAnalyzing = true;
       _error = null;
+      _currentStep = 'Analyzing video frame...';
+      _generatedLyrics = null;
     });
 
     try {
       HapticFeedback.mediumImpact();
+      
+      // Step 1: Analyze video frame
+      print('🎬 Starting video analysis...');
       final objects = await _analysisService.analyzeVideoFrame(widget.videoUrl);
       
+      if (!mounted) return;
+      setState(() {
+        _detectedObjects = objects;
+        _currentStep = 'Generating lyrics...';
+      });
+
+      // Step 2: Generate lyrics based on detected objects
+      print('🎵 Generating lyrics from detected objects...');
+      final prompt = '''
+Create song lyrics (maximum 400 characters) that incorporate these themes: ${objects.join(", ")}.
+The lyrics should be in the style of $_selectedStyle music, but without directly mentioning the style.
+Do not include any section labels (verse, chorus, etc.) - just write the lyrics as continuous text.
+Make it professional and emotionally resonant. Only use normal a-z ascii characters, no special characters or emojis as they will break the generation. As a general hip-hop theme,
+the lyrics should be about the detected objects and the context of the video, and should select a cohesive rhyme scheme.
+''';
+
+      final lyrics = await _openAIService.generateLyrics(
+        prompt: prompt,
+        maxLength: 400,
+      );
+
+      print('✨ Generated Lyrics:');
+      print(lyrics);
+
       if (mounted) {
         setState(() {
-          _detectedObjects = objects;
+          _generatedLyrics = lyrics;
+          _currentStep = 'Complete!';
           _isAnalyzing = false;
         });
       }
     } catch (e) {
+      print('❌ Error in analysis flow: $e');
       if (mounted) {
         setState(() {
           _error = 'Failed to analyze video: $e';
           _isAnalyzing = false;
+          _currentStep = '';
         });
       }
     }
@@ -182,7 +227,73 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
                       ),
                     ),
 
-                    // Detected objects list
+                    // Music style selection
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 8.0),
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: caveShadow.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(emeraldCut),
+                        border: Border.all(
+                          color: amethyst.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Music Style',
+                            style: crystalHeading.copyWith(
+                              fontSize: 20,
+                              color: amethyst,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedStyle,
+                            dropdownColor: deepCave,
+                            style: gemText.copyWith(color: Colors.white),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: deepCave.withOpacity(0.3),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(emeraldCut),
+                                borderSide: BorderSide(
+                                  color: amethyst.withOpacity(0.3),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(emeraldCut),
+                                borderSide: BorderSide(
+                                  color: amethyst.withOpacity(0.3),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(emeraldCut),
+                                borderSide: const BorderSide(
+                                  color: amethyst,
+                                ),
+                              ),
+                            ),
+                            items: _musicStyles.map((String style) {
+                              return DropdownMenuItem<String>(
+                                value: style,
+                                child: Text(style),
+                              );
+                            }).toList(),
+                            onChanged: _isAnalyzing ? null : (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  _selectedStyle = newValue;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Detected objects and lyrics
                     Container(
                       margin: const EdgeInsets.symmetric(vertical: 8.0),
                       constraints: BoxConstraints(
@@ -199,7 +310,7 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
                           ? _buildAnalyzingState()
                           : _detectedObjects.isEmpty
                               ? _buildEmptyState()
-                              : _buildObjectsList(),
+                              : _buildResultsList(),
                     ),
 
                     // Analyze button
@@ -241,7 +352,7 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
                                 ),
                               Flexible(
                                 child: Text(
-                                  _isAnalyzing ? 'Analyzing...' : 'Analyze Video Frame',
+                                  _isAnalyzing ? _currentStep : 'Analyze Video Frame',
                                   style: crystalHeading.copyWith(
                                     fontSize: 18,
                                     color: Colors.white,
@@ -303,7 +414,7 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
           ),
           const SizedBox(height: 24),
           Text(
-            'Analyzing Video Frame',
+            _currentStep,
             style: crystalHeading.copyWith(
               fontSize: 20,
               color: Colors.white,
@@ -353,13 +464,20 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
     );
   }
 
-  Widget _buildObjectsList() {
-    return ListView.builder(
+  Widget _buildResultsList() {
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: _detectedObjects.length,
-      itemBuilder: (context, index) {
-        final object = _detectedObjects[index];
-        return Container(
+      children: [
+        // Detected Objects Section
+        Text(
+          'Detected Objects',
+          style: crystalHeading.copyWith(
+            fontSize: 20,
+            color: sapphire,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._detectedObjects.map((object) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -395,8 +513,39 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
               ),
             ],
           ),
-        );
-      },
+        )).toList(),
+
+        // Generated Lyrics Section
+        if (_generatedLyrics != null) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Generated Lyrics',
+            style: crystalHeading.copyWith(
+              fontSize: 20,
+              color: amethyst,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: amethyst.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(emeraldCut),
+              border: Border.all(
+                color: amethyst.withOpacity(0.3),
+              ),
+            ),
+            child: Text(
+              _generatedLyrics!,
+              style: gemText.copyWith(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
