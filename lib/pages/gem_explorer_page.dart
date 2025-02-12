@@ -629,7 +629,15 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
         );
         break;
       case 'AI Music':
-        // Existing AI Music logic
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AIMusicPage(
+              videoPath: widget.recordedVideo.path,
+              videoController: _videoController,
+            ),
+          ),
+        );
         break;
       case 'Edit Meta':
         final result = await Navigator.push(
@@ -659,7 +667,17 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
         }
         break;
       case 'Trim':
-        // Existing Trim logic
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoCropPage(
+              videoUrl: widget.cloudinaryUrl!,
+              onCropComplete: (String newUrl) {
+                // Handle the cropped video URL if needed
+              },
+            ),
+          ),
+        );
         break;
       case 'AI Object Detect':
         Navigator.push(
