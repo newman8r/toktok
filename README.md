@@ -1,30 +1,43 @@
-# TokTok - A Modern Video Sharing Platform 🎥✨
+# Crystal Gems - A Magical Video Creation Studio 🎥✨
 
-A beautifully crafted Flutter application that combines the engaging features of short-form video sharing with a unique gem-mining theme. Built with clean architecture principles and modern development practices.
+A beautifully crafted Flutter application that transforms your videos into magical crystal gems. Experience an enchanting interface with crystal-themed animations and powerful video editing capabilities.
 
-## 🌟 Features
+## ✨ Features
 
-### Core Features
-- **Immersive Video Experience**: Smooth, full-screen video playback with intuitive gestures
-- **Creative Studio**: Professional camera interface with real-time filters and effects
-- **Cloud Storage**: Seamless integration with Cloudinary for reliable video hosting
-- **Authentication**: Secure user authentication powered by Firebase
-- **Real-time Database**: Firestore backend for instant updates and social features
-- **Beautiful UI**: Custom-designed gem-themed interface with fluid animations
-- **Offline Support**: Local video caching for smooth playback
-- **Cross-platform**: Works on both iOS and Android
+### Crystal Explorer Interface
+- **Hexagonal Navigation**: Unique spatial navigation system with a crystal cave-like interface
+- **Crystal Video Player**: Immersive video playback with crystal-themed controls
+- **Animated Transitions**: Smooth spatial transitions between editing modes with crystal shard effects
+- **Haptic Feedback**: Tactile response for enhanced interaction
+- **Dynamic Lighting**: Beautiful crystal-themed gradients and ambient effects
 
-### New Features 🆕
-- **Advanced Search**: Search videos by title, description, and tags with real-time filtering
-- **Tag System**: Add and manage tags for better content organization
-- **Smart Navigation**: Improved navigation with fallback to prevent black screens
-- **Metadata Editor**: Edit video details including title, description, and tags
-- **Tag Suggestions**: Smart tag suggestions based on your content
-- **Statistics Dashboard**: View collection stats including storage usage and activity
-- **Crystal UI**: Enhanced UI with beautiful crystal-themed animations
-- **Haptic Feedback**: Tactile feedback for better user experience
-- **Pull-to-Refresh**: Easy content updating with smooth animations
-- **Adaptive Layout**: Responsive design that works on various screen sizes
+### Video Enhancement
+- **AI Music Magic**: Generate magical background music that matches your video's mood
+- **Smart Trimming**: Crystal-precise video trimming with frame-accurate controls
+- **Object Detection**: AI-powered object recognition to discover hidden treasures in your videos
+- **Meta Editing**: Enhance your gem's details with custom metadata
+- **Info Analysis**: Crystal-clear insights about your video content
+
+### Magical Experience
+- **Crystal Shatter Effects**: Beautiful deletion animations with flying crystal shards
+- **Ambient Sound Effects**: Mystical audio feedback for actions
+- **Particle Systems**: Dynamic particle effects for trash and deletion animations
+- **Gem Collection**: Organize and manage your video gems in a beautiful gallery
+- **Publishing Studio**: Share your enhanced crystal gems with magical transitions
+
+### Crystal-Clear UI
+- **Ruby Accents**: Danger and deletion actions themed with ruby crystals
+- **Sapphire Elements**: Cool, calming interface elements
+- **Amethyst Highlights**: Magical accent colors for special features
+- **Emerald Touches**: Success and confirmation indicators
+- **Deep Cave Theme**: Dark mode interface with crystal highlights
+
+### Smart Features
+- **Auto-Save**: Never lose your progress with automatic saving
+- **Gesture Controls**: Intuitive touch controls for video manipulation
+- **Progress Tracking**: Crystal-clear progress indicators for all operations
+- **Error Handling**: Graceful error recovery with themed error messages
+- **Responsive Design**: Adapts beautifully to any screen size
 
 ## 🏗️ Architecture
 
