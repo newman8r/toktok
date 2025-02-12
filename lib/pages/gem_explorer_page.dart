@@ -32,6 +32,7 @@ import 'package:just_audio/just_audio.dart';
 import 'ai_music_page.dart';
 import 'ai_music_magic_page.dart';
 import 'ai_object_detection_page.dart';
+import 'crystal_video_player_page.dart';
 
 // Helper classes for animations and UI
 class _TrashFly {
@@ -850,40 +851,64 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   // Displays video content within a tile with play/pause controls
   // and loading states
   Widget _buildVideoContent(Map<String, dynamic> content) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        if (_videoController.value.isInitialized) 
-          SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _videoController.value.size.width,
-                height: _videoController.value.size.height,
-                child: VideoPlayer(_videoController),
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              CrystalVideoPlayerPage(
+                videoController: _videoController,
+              ),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(0.0, 1.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (_videoController.value.isInitialized) 
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _videoController.value.size.width,
+                  height: _videoController.value.size.height,
+                  child: VideoPlayer(_videoController),
+                ),
+              ),
+            )
+          else
+            const Center(
+              child: CircularProgressIndicator(
+                color: Colors.white,
               ),
             ),
-          )
-        else
-          const Center(
-            child: CircularProgressIndicator(
-              color: Colors.white,
+          if (!_videoController.value.isPlaying)
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withOpacity(0.5),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: const Icon(
+                Icons.play_arrow,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
-          ),
-        if (!_videoController.value.isPlaying)
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withOpacity(0.5),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: const Icon(
-              Icons.play_arrow,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
