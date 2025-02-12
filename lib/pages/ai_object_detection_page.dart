@@ -12,7 +12,7 @@ import 'gem_meta_edit_page.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
-import '../services/contextual_music_service.dart';
+import '../services/contextual_music_service.dart' hide UnifiedContext;
 import '../models/unified_context.dart';
 
 class AIObjectDetectionPage extends StatefulWidget {
