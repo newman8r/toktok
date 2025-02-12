@@ -115,69 +115,126 @@ class _PublishGemPageState extends State<PublishGemPage> with TickerProviderStat
     try {
       setState(() => _isSaving = true);
 
-      // Request appropriate permissions based on Android version
-      bool hasPermission = false;
+      // Handle permissions and directory access based on platform
       if (Platform.isAndroid) {
-        if (await Permission.storage.request().isGranted) {
-          hasPermission = true;
-        } else if (await Permission.manageExternalStorage.request().isGranted) {
-          hasPermission = true;
-        }
-      } else {
-        // For iOS, we don't need explicit permission for saving to app's directory
-        hasPermission = true;
-      }
-
-      if (!hasPermission) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Storage permission is required to save the video')),
-        );
-        return;
-      }
-
-      // Get the appropriate directory
-      Directory directory;
-      if (Platform.isAndroid) {
-        directory = Directory('/storage/emulated/0/Download');  // Android Downloads folder
-        if (!await directory.exists()) {
-          // Fallback to app's external storage
-          final appDir = await getExternalStorageDirectory();
-          if (appDir == null) {
-            throw Exception('Could not access storage directory');
-          }
-          directory = appDir;
-        }
-      } else {
-        directory = await getApplicationDocumentsDirectory();  // iOS Documents directory
-      }
-
-      // Generate unique filename with timestamp
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filePath = '${directory.path}/TokTok_Gem_$timestamp.mp4';
-
-      // Download and save the video
-      final response = await http.get(Uri.parse(widget.cloudinaryUrl));
-      if (response.statusCode == 200) {
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
+        print('📱 Android device detected - checking permissions...');
         
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Video saved to ${Platform.isAndroid ? 'Downloads' : 'Documents'} folder'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Trigger success particles
-          setState(() => _showSuccessParticles = true);
-          _particleController.forward(from: 0);
-          HapticFeedback.mediumImpact();
+        // Get Android version through platform channel
+        const platform = MethodChannel('com.toktok.app/storage');
+        final sdkVersion = await platform.invokeMethod<int>('getAndroidVersion') ?? 0;
+        print('📱 Android SDK version: $sdkVersion');
+        
+        // For Android 13+ (API 33), we need READ_MEDIA_VIDEO permission
+        if (sdkVersion >= 33) {
+          print('📝 Android 13+ detected, requesting READ_MEDIA_VIDEO permission');
+          final videoPermission = await Permission.videos.request();
+          print('🔐 Video permission status: $videoPermission');
+          
+          if (!videoPermission.isGranted) {
+            throw Exception('Video permission required to save media');
+          }
+        } else {
+          // For older Android versions, we need storage permission
+          print('📝 Pre-Android 13 detected, requesting storage permission');
+          final storagePermission = await Permission.storage.request();
+          print('🔐 Storage permission status: $storagePermission');
+          
+          if (!storagePermission.isGranted) {
+            throw Exception('Storage permission required to save media');
+          }
+        }
+
+        print('✅ Permissions granted, proceeding with save...');
+        final directory = await getExternalStorageDirectory();
+        if (directory == null) {
+          print('❌ Could not access external storage directory');
+          throw Exception('Could not access external storage');
+        }
+        print('📂 Using directory: ${directory.path}');
+
+        // Generate unique filename with timestamp
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileName = 'TokTok_Gem_$timestamp.mp4';
+        final filePath = '${directory.path}/$fileName';
+        print('📄 Generated file path: $filePath');
+
+        // Download the video first
+        print('⬇️ Downloading video from Cloudinary...');
+        final response = await http.get(Uri.parse(widget.cloudinaryUrl));
+        if (response.statusCode != 200) {
+          print('❌ Failed to download video. Status code: ${response.statusCode}');
+          throw Exception('Failed to download video');
+        }
+        print('✅ Video downloaded successfully');
+
+        // Save to app's external storage first
+        print('💾 Saving to temporary location...');
+        final tempFile = File(filePath);
+        await tempFile.writeAsBytes(response.bodyBytes);
+        print('✅ Saved to temporary location');
+
+        // Move to Downloads using platform channel
+        print('📦 Moving file to Downloads...');
+        final success = await platform.invokeMethod('moveToDownloads', {
+          'sourcePath': filePath,
+          'fileName': fileName,
+        });
+        print('🔄 Move to Downloads result: $success');
+
+        if (success == true) {
+          if (mounted) {
+            print('🎉 File successfully saved to Downloads');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Video saved to Downloads folder'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            setState(() => _showSuccessParticles = true);
+            _particleController.forward(from: 0);
+            HapticFeedback.mediumImpact();
+          }
+        } else {
+          print('❌ Failed to move file to Downloads');
+          throw Exception('Failed to move file to Downloads');
         }
       } else {
-        throw Exception('Failed to download video');
+        // iOS implementation
+        print('🍎 iOS device detected');
+        final directory = await getApplicationDocumentsDirectory();
+        print('📂 Using directory: ${directory.path}');
+        
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final filePath = '${directory.path}/TokTok_Gem_$timestamp.mp4';
+        print('📄 Generated file path: $filePath');
+
+        print('⬇️ Downloading video...');
+        final response = await http.get(Uri.parse(widget.cloudinaryUrl));
+        if (response.statusCode == 200) {
+          print('✅ Video downloaded successfully');
+          final file = File(filePath);
+          await file.writeAsBytes(response.bodyBytes);
+          print('💾 Video saved to Documents folder');
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Video saved to Documents folder'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            setState(() => _showSuccessParticles = true);
+            _particleController.forward(from: 0);
+            HapticFeedback.mediumImpact();
+          }
+        } else {
+          print('❌ Failed to download video. Status code: ${response.statusCode}');
+          throw Exception('Failed to download video');
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Error in _saveToDevice: $e');
+      print('📚 Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
