@@ -11,6 +11,7 @@ import '../services/cloudinary_service.dart';
 import '../services/gem_service.dart';
 import '../services/auth_service.dart';
 import 'package:just_audio/just_audio.dart';
+import 'gem_meta_edit_page.dart';
 
 class AIMusicMagicPage extends StatefulWidget {
   final String videoPath;
@@ -96,28 +97,6 @@ class _AIMusicMagicPageState extends State<AIMusicMagicPage>
       print('🌍 Gathering mystical energies from your surroundings...');
       final context = await _contextService.getUnifiedContext();
       
-      // Log the gathered context
-      print('\n✨ Magical Context Gathered ✨');
-      print('🌤️  Weather: ${context.weather.description}');
-      print('🌡️  Temperature: ${context.weather.temperature}°C');
-      print('🌅 Time of Day: ${context.weather.timeOfDay}');
-      print('🎭 Weather Mood: ${context.weather.mood}');
-      
-      print('\n📍 Location Vibes:');
-      print('🏢 Place: ${context.location.locationName}');
-      print('🌟 Vibe Words: ${context.location.vibeWords.join(", ")}');
-      print('🎵 Ambiance: ${context.location.ambiance}');
-      print('👥 Crowd Level: ${context.location.crowdLevel}');
-      
-      print('\n📅 Time Context:');
-      print('📆 ${context.calendar.dayOfWeek}, ${context.calendar.month} ${context.calendar.dayOfMonth}');
-      print('🍂 Season: ${context.calendar.season}');
-      print('⏰ Time: ${context.calendar.timeOfDay}');
-      
-      print('\n🎼 Musical Inspiration:');
-      print('🎵 Selected Style: $_selectedStyle');
-      print('✍️ Lyrical Theme: ${context.generateLyricalTheme()}');
-
       // Generate lyrics with OpenAI
       final locationVibe = '${context.location.ambiance} ${context.location.vibeWords.join(" ")}';
       final timeContext = '${context.calendar.timeOfDay} in ${context.calendar.season}';
@@ -129,34 +108,10 @@ Use only standard characters (a-z, 0-9, basic punctuation). No special character
 Make it sound like a modern hip-hop track with clever wordplay and strong delivery.
 Temperature is ${context.weather.temperature}, weather is ${context.weather.description}.
 Style reference: $_selectedStyle hip-hop''',
-          maxLength: 400,  // Reduced to avoid truncation
+          maxLength: 400,
         );
 
         print('✨ Generated Lyrics:\n$_generatedLyrics');
-        
-        // Ensure lyrics are within 400 character limit
-        if (_generatedLyrics != null && _generatedLyrics!.length > 400) {
-          print('⚠️ Truncating lyrics to fit 400 character limit');
-          print('📏 Original length: ${_generatedLyrics!.length}');
-          
-          // Start with full text truncated at 400
-          String truncated = _generatedLyrics!;
-          
-          // Keep removing words from the end until we're under 400 chars
-          while (truncated.length > 397) { // 397 to leave room for '...'
-            final lastSpaceIndex = truncated.lastIndexOf(' ');
-            if (lastSpaceIndex == -1) {
-              // If no spaces found, just hard truncate
-              truncated = truncated.substring(0, 397);
-              break;
-            }
-            truncated = truncated.substring(0, lastSpaceIndex);
-          }
-          
-          _generatedLyrics = '$truncated...';
-          print('📏 New length: ${_generatedLyrics!.length}');
-          print('📝 Truncated Lyrics:\n$_generatedLyrics');
-        }
         
         setState(() {
           _isGeneratingLyrics = false;
@@ -165,18 +120,11 @@ Style reference: $_selectedStyle hip-hop''',
 
         // Generate music with Uberduck
         print('\n🎵 Starting Uberduck music generation...');
-        print('Style preset: $_selectedStyle');
-        print('Voice model: Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9');
-        print('Lyrics length: ${_generatedLyrics!.length} characters');
-        
         final result = await UberduckService.generateSong(
           lyrics: _generatedLyrics!,
           style_preset: _selectedStyle,
           voicemodel_uuid: 'Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9',
         );
-
-        print('\n📦 Uberduck Response:');
-        print(result);
 
         if (result['status'] == 'OK' && result['output_url'] != null) {
           print('✅ Successfully generated music!');
@@ -195,8 +143,6 @@ Style reference: $_selectedStyle hip-hop''',
           // Start video playback when music starts
           widget.videoController.play();
         } else {
-          print('❌ Uberduck response missing status OK or output_url');
-          print('Response data: $result');
           throw Exception('Invalid response from Uberduck');
         }
       } catch (e) {
@@ -207,7 +153,6 @@ Style reference: $_selectedStyle hip-hop''',
           _isGeneratingLyrics = false;
         });
       }
-      
     } catch (e) {
       print('❌ Error during context gathering: $e');
       setState(() {
@@ -247,7 +192,7 @@ Style reference: $_selectedStyle hip-hop''',
       
       final publicId = newVideoUrl.split('/').last.split('.').first;
       
-      await gemService.createGem(
+      final gem = await gemService.createGem(
         userId: user.uid,
         title: 'Crystal Melody',
         description: 'Video with AI-generated $_selectedStyle music',
@@ -256,10 +201,62 @@ Style reference: $_selectedStyle hip-hop''',
         bytes: 0,  // Skip actual file size since we're using Cloudinary URL
         tags: ['ai_music', 'crystal_melody', _selectedStyle.toLowerCase()],
         style_preset: _selectedStyle,
-        lyrics: _generatedLyrics,  // Add lyrics since it's in the schema
+        lyrics: _generatedLyrics,
       );
       
-      if (mounted) {
+      if (!mounted) return;
+
+      // Show metadata prompt
+      final bool shouldEditMetadata = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: deepCave,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(emeraldCut),
+              side: BorderSide(color: amethyst.withOpacity(0.5)),
+            ),
+            title: Text(
+              '✨ Crystal Melody Created!',
+              style: crystalHeading.copyWith(color: amethyst),
+            ),
+            content: Text(
+              'Would you like to edit the title and description?',
+              style: gemText.copyWith(color: silver),
+            ),
+            actions: [
+              TextButton(
+                child: Text(
+                  'Skip',
+                  style: gemText.copyWith(color: silver),
+                ),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: Text(
+                  'Edit',
+                  style: gemText.copyWith(color: amethyst),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+
+      if (shouldEditMetadata && mounted) {
+        // Navigate to metadata edit page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GemMetaEditPage(
+              gemId: gem.id,
+              gem: gem,
+            ),
+          ),
+        );
+      } else if (mounted) {
         Navigator.pop(context, newVideoUrl);
       }
     } catch (e) {

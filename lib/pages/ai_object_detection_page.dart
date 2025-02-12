@@ -4,6 +4,12 @@ import 'package:video_player/video_player.dart';
 import '../theme/gem_theme.dart';
 import '../services/video_analysis_service.dart';
 import '../services/openai_service.dart';
+import '../services/uberduck_service.dart';
+import '../services/cloudinary_service.dart';
+import '../services/gem_service.dart';
+import '../services/auth_service.dart';
+import 'gem_meta_edit_page.dart';
+import 'package:just_audio/just_audio.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 
@@ -24,11 +30,19 @@ class AIObjectDetectionPage extends StatefulWidget {
 class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with SingleTickerProviderStateMixin {
   final VideoAnalysisService _analysisService = VideoAnalysisService();
   final OpenAIService _openAIService = OpenAIService();
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final GemService _gemService = GemService();
+  final AuthService _authService = AuthService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   late AnimationController _crystalController;
   List<String> _detectedObjects = [];
   bool _isAnalyzing = false;
+  bool _isGeneratingMusic = false;
+  bool _isSaving = false;
   String? _error;
   String? _generatedLyrics;
+  String? _generatedAudioUrl;
+  String? _finalVideoUrl;
   String _selectedStyle = "Modern"; // Default style
   String _currentStep = '';
   
@@ -66,6 +80,7 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
   @override
   void dispose() {
     _crystalController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -74,9 +89,11 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
 
     setState(() {
       _isAnalyzing = true;
+      _isGeneratingMusic = false;
       _error = null;
       _currentStep = 'Analyzing video frame...';
       _generatedLyrics = null;
+      _generatedAudioUrl = null;
     });
 
     try {
@@ -110,12 +127,44 @@ the lyrics should be about the detected objects and the context of the video, an
       print('✨ Generated Lyrics:');
       print(lyrics);
 
-      if (mounted) {
+      if (!mounted) return;
+      setState(() {
+        _generatedLyrics = lyrics;
+        _currentStep = 'Generating music...';
+        _isGeneratingMusic = true;
+      });
+
+      // Step 3: Generate music with Uberduck
+      print('\n🎵 Starting Uberduck music generation...');
+      final result = await UberduckService.generateSong(
+        lyrics: lyrics,
+        style_preset: _selectedStyle,
+        voicemodel_uuid: 'Udzs_f45351fa-F13e-4466-8d7e-7cc5517edab9',
+      );
+
+      if (result['status'] == 'OK' && result['output_url'] != null) {
+        print('✅ Successfully generated music!');
+        print('🎵 Audio URL: ${result['output_url']}');
+        
+        if (!mounted) return;
         setState(() {
-          _generatedLyrics = lyrics;
-          _currentStep = 'Complete!';
+          _generatedAudioUrl = result['output_url'];
+          _currentStep = 'Saving video...';
+          _isGeneratingMusic = false;
           _isAnalyzing = false;
         });
+        
+        // Load and play the audio preview
+        await _audioPlayer.setUrl(_generatedAudioUrl!);
+        _audioPlayer.play();
+        
+        // Start video playback when music starts
+        widget.videoController.play();
+
+        // Save the video with the generated audio
+        await _saveVideoWithAudio();
+      } else {
+        throw Exception('Invalid response from Uberduck');
       }
     } catch (e) {
       print('❌ Error in analysis flow: $e');
@@ -123,7 +172,117 @@ the lyrics should be about the detected objects and the context of the video, an
         setState(() {
           _error = 'Failed to analyze video: $e';
           _isAnalyzing = false;
+          _isGeneratingMusic = false;
           _currentStep = '';
+        });
+      }
+    }
+  }
+
+  Future<void> _saveVideoWithAudio() async {
+    if (_isSaving || _generatedAudioUrl == null) return;
+
+    setState(() {
+      _isSaving = true;
+      _currentStep = 'Saving video with audio...';
+    });
+
+    try {
+      // Step 1: Add audio to video using Cloudinary
+      print('🎥 Combining video and audio in Cloudinary...');
+      final videoWithAudio = await _cloudinaryService.addAudioToVideo(
+        videoUrl: widget.videoUrl,
+        audioUrl: _generatedAudioUrl!,
+        audioDuration: await _audioPlayer.duration ?? const Duration(seconds: 30),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _finalVideoUrl = videoWithAudio;
+        _currentStep = 'Creating gem...';
+      });
+
+      // Get current user
+      final user = _authService.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      // Create gem in Firestore
+      final publicId = videoWithAudio.split('/').last.split('.').first;
+      final gem = await _gemService.createGem(
+        userId: user.uid,
+        title: 'AI Generated Music Video',
+        description: 'Created with Crystal Vision and UberDuck\nStyle: $_selectedStyle\nLyrics:\n$_generatedLyrics',
+        cloudinaryUrl: videoWithAudio,
+        cloudinaryPublicId: publicId,
+        bytes: 0,
+        tags: ['ai_music', 'crystal_vision', ..._detectedObjects],
+        lyrics: _generatedLyrics,
+        style_preset: _selectedStyle,
+      );
+
+      if (!mounted) return;
+      setState(() => _currentStep = 'Opening metadata editor...');
+
+      // Show metadata edit modal
+      final shouldEditMetadata = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: deepCave,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(emeraldCut),
+              side: BorderSide(color: amethyst.withOpacity(0.5)),
+            ),
+            title: Text(
+              '✨ Crystal Melody Created!',
+              style: crystalHeading.copyWith(color: amethyst),
+            ),
+            content: Text(
+              'Would you like to edit the title and description?',
+              style: gemText.copyWith(color: silver),
+            ),
+            actions: [
+              TextButton(
+                child: Text(
+                  'Skip',
+                  style: gemText.copyWith(color: silver),
+                ),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: Text(
+                  'Edit',
+                  style: gemText.copyWith(color: amethyst),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+
+      if (shouldEditMetadata && mounted) {
+        // Navigate to metadata edit page with correct parameters
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GemMetaEditPage(
+              gemId: gem.id,
+              gem: gem,
+            ),
+          ),
+        );
+      } else if (mounted) {
+        Navigator.pop(context, true); // Return to previous screen
+      }
+    } catch (e) {
+      print('❌ Error saving video: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to save video: $e';
+          _isSaving = false;
+          _currentStep = 'Complete!';
         });
       }
     }
@@ -542,6 +701,61 @@ the lyrics should be about the detected objects and the context of the video, an
                 fontSize: 16,
                 height: 1.5,
               ),
+            ),
+          ),
+        ],
+
+        // Audio Controls Section
+        if (_generatedAudioUrl != null) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Generated Music',
+            style: crystalHeading.copyWith(
+              fontSize: 20,
+              color: emerald,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: emerald.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(emeraldCut),
+              border: Border.all(
+                color: emerald.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _audioPlayer.playing ? Icons.pause : Icons.play_arrow,
+                    color: emerald,
+                    size: 32,
+                  ),
+                  onPressed: () {
+                    if (_audioPlayer.playing) {
+                      _audioPlayer.pause();
+                    } else {
+                      _audioPlayer.play();
+                    }
+                    setState(() {});
+                  },
+                ),
+                const SizedBox(width: 24),
+                IconButton(
+                  icon: const Icon(
+                    Icons.replay,
+                    color: sapphire,
+                    size: 32,
+                  ),
+                  onPressed: () {
+                    _audioPlayer.seek(Duration.zero);
+                    _audioPlayer.play();
+                  },
+                ),
+              ],
             ),
           ),
         ],
