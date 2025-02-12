@@ -46,6 +46,37 @@ class ContextualMusicService {
         locationFuture,
       ]);
 
+      final weatherData = results[0] as dynamic;
+      final locationData = results[1] as dynamic;
+
+      // Convert weather data to our unified WeatherContext model
+      final weather = WeatherContext(
+        temperature: weatherData.temperature,
+        feelsLike: weatherData.feelsLike,
+        humidity: weatherData.humidity,
+        dewPoint: 0.0,  // Default value since not available
+        uvi: 0.0,      // Default value since not available
+        clouds: 0,      // Default value since not available
+        visibility: 10000, // Default good visibility
+        windSpeed: 0.0,   // Default value since not available
+        windGust: null,   // Default value since not available
+        windDeg: 0,       // Default value since not available
+        mood: weatherData.mood,
+        description: weatherData.description,
+      );
+
+      // Convert location data to our unified LocationContext model
+      final location = LocationContext(
+        primaryCategory: locationData.primaryCategory,
+        locationName: locationData.locationName,
+        vibeWords: locationData.vibeWords,
+        timeContext: locationData.timeContext,
+        crowdLevel: locationData.crowdLevel,
+        ambiance: locationData.ambiance,
+        nearbyPlaces: locationData.nearbyPlaces,
+        neighborhood: locationData.neighborhood,
+      );
+
       final now = DateTime.now();
       final formatter = DateFormat('EEEE');
       final monthFormatter = DateFormat('MMMM');
@@ -88,9 +119,9 @@ class ContextualMusicService {
       }
 
       // Create unified context
-      return UnifiedContext(
-        weather: results[0] as WeatherContext,
-        location: results[1] as LocationContext,
+      final context = UnifiedContext(
+        weather: weather,
+        location: location,
         calendar: CalendarContext(
           timeOfDay: timeOfDay,
           season: season,
@@ -98,10 +129,12 @@ class ContextualMusicService {
           month: monthFormatter.format(now),
           dayOfMonth: now.day,
           year: now.year,
-          isWeekend: now.weekday >= 6,
+          isWeekend: now.weekday >= DateTime.saturday,
           partOfMonth: partOfMonth,
         ),
       );
+
+      return context;
     } catch (e) {
       print('❌ Error gathering context: $e');
       rethrow;

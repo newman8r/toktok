@@ -35,7 +35,6 @@ class LocationContext {
 class WeatherContext {
   final double temperature;
   final double feelsLike;
-  final int pressure;
   final int humidity;
   final double dewPoint;
   final double uvi;
@@ -50,7 +49,6 @@ class WeatherContext {
   WeatherContext({
     required this.temperature,
     required this.feelsLike,
-    required this.pressure,
     required this.humidity,
     required this.dewPoint,
     required this.uvi,
