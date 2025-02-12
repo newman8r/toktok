@@ -32,6 +32,8 @@ import 'package:just_audio/just_audio.dart';
 import 'ai_music_page.dart';
 import 'ai_music_magic_page.dart';
 import 'ai_object_detection_page.dart';
+import 'crystal_video_player_page.dart';
+import 'gem_info_page.dart';
 
 // Helper classes for animations and UI
 class _TrashFly {
@@ -291,9 +293,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   // Mystical content for exploration
   final List<Map<String, dynamic>> _editOptions = [
     {'type': 'edit', 'content': '🔮', 'name': 'AI Music Magic', 'description': 'Generate magical music', 'direction': 'topLeft'},
-    {'type': 'edit', 'content': '✨', 'name': 'Enhance', 'description': 'Improve video quality', 'direction': 'topRight'},
+    {'type': 'edit', 'content': 'ℹ️', 'name': 'Info', 'description': 'Crystal analysis', 'direction': 'topRight'},
     {'type': 'edit', 'content': '🎵', 'name': 'AI Music', 'description': 'Generate background music', 'direction': 'right'},
-    {'type': 'edit', 'content': '⚡', 'name': 'Effects', 'description': 'Add visual effects', 'direction': 'bottomRight'},
+    {'type': 'edit', 'content': '✏️', 'name': 'Edit Meta', 'description': 'Edit gem details', 'direction': 'bottomRight'},
     {'type': 'edit', 'content': '✂️', 'name': 'Trim', 'description': 'Edit video length', 'direction': 'bottomLeft'},
     {'type': 'edit', 'content': '👁️', 'name': 'AI Object Detect', 'description': 'Discover hidden treasures', 'direction': 'left'},
   ];
@@ -332,10 +334,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             setState(() {
               print('Video dimensions: ${_videoController.value.size}');
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
-              _videoController.play();
               _videoController.setLooping(true);
               _videoController.setVolume(1.0);  // Set initial volume
-              print('Video initialized and playing');
+              print('Video initialized');
             });
           }
         }).catchError((error) {
@@ -349,10 +350,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             setState(() {
               print('Video dimensions: ${_videoController.value.size}');
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
-              _videoController.play();
               _videoController.setLooping(true);
               _videoController.setVolume(1.0);  // Set initial volume
-              print('Video initialized and playing');
+              print('Video initialized');
             });
           }
         }).catchError((error) {
@@ -581,197 +581,113 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
 
   // Handles the selection of an edit option (like trim, effects, etc.)
   void _handleEditOption(Map<String, dynamic> option) async {
-    HapticFeedback.mediumImpact();
+    if (!mounted) return;
     
-    // Get the direction directly from the option
-    final direction = option['direction'] as String;
-    
-    print('Selected edit option: ${option['name']} (moving ${option['direction']})');
-    
-    // First, perform the spatial navigation
-    await _navigate(direction);
-    
-    // Handle different edit options
-    if (option['name'] == 'Trim') {
-      // Add a slight delay to ensure navigation is complete
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      // Get the current video URL directly from the video controller
-      final videoUrlToEdit = _videoController.dataSource;
-      if (videoUrlToEdit == null) {
-        print('Error: No video URL available from controller');
-        return;
-      }
-      
-      print('Opening crop view with video URL: $videoUrlToEdit');
-      
-      // Show the crystal lens cropper with glass effect overlay
-      await showGeneralDialog(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'Crop View',
-        barrierColor: Colors.transparent,
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Stack(
-            children: [
-              // Glass effect background
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    color: deepCave.withOpacity(0.5),
-                  ),
-                ),
-              ),
-              
-              // Crop page with fade transition
-              FadeTransition(
-                opacity: animation,
-                child: VideoCropPage(
-                  videoUrl: videoUrlToEdit,
-                  sourceGemId: widget.gemId,
-                  onCropComplete: (String newVideoUrl) {
-                    // Update the content grid with the new video
-                    final key = '${_currentOffset.dx.toInt()},${_currentOffset.dy.toInt()}';
-                    setState(() {
-                      _contentGrid[key] = {
-                        'type': 'video',
-                        'content': widget.recordedVideo,
-                        'cloudinaryUrl': newVideoUrl,
-                        'isEdited': true,
-                      };
-                    });
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    } else if (option['name'] == 'AI Music Magic') {
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      final videoUrlToEdit = _videoController.dataSource;
-      if (videoUrlToEdit == null) {
-        print('Error: No video URL available from controller');
-        return;
-      }
-      
-      await showGeneralDialog(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'AI Music Magic',
-        barrierColor: Colors.transparent,
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Stack(
-            children: [
-              // Glass effect background
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    color: deepCave.withOpacity(0.5),
-                  ),
-                ),
-              ),
-              
-              // AI Music Magic page with fade transition
-              FadeTransition(
-                opacity: animation,
-                child: AIMusicMagicPage(
-                  videoPath: widget.recordedVideo.path,
-                  videoController: _videoController,
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    } else if (option['name'] == 'AI Music') {
-      // Add a slight delay to ensure navigation is complete
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      // Show the AI Music page with glass effect overlay
-      final result = await showGeneralDialog<String>(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'AI Music',
-        barrierColor: Colors.transparent,
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Stack(
-            children: [
-              // Glass effect background
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    color: deepCave.withOpacity(0.5),
-                  ),
-                ),
-              ),
-              
-              // AI Music page with fade transition
-              FadeTransition(
-                opacity: animation,
-                child: AIMusicPage(
-                  videoPath: widget.recordedVideo.path,
-                  videoController: _videoController,
-                ),
-              ),
-            ],
-          );
-        },
-      );
+    // Get current gem data
+    final gem = await _gemService.getGem(widget.gemId!);
+    if (gem == null) {
+      print('❌ Failed to load gem data');
+      return;
+    }
 
-      if (result != null) {
-        // User accepted the generated music
-        print('Generated music URL: $result');
-        // TODO: Handle the accepted music URL
-        // We'll implement Cloudinary integration later
-      }
-    } else if (option['name'] == 'AI Object Detect') {
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      final videoUrlToEdit = _videoController.dataSource;
-      if (videoUrlToEdit == null) {
-        print('Error: No video URL available from controller');
-        return;
-      }
-      
-      await showGeneralDialog(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'AI Object Detection',
-        barrierColor: Colors.transparent,
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Stack(
-            children: [
-              // Glass effect background
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    color: deepCave.withOpacity(0.5),
-                  ),
-                ),
+    if (!mounted) return;
+
+    switch (option['name']) {
+      case 'AI Music Magic':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AIMusicMagicPage(
+              videoPath: widget.recordedVideo.path,
+              videoController: _videoController,
+            ),
+          ),
+        );
+        break;
+      case 'Info':
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              GemInfoPage(gem: gem),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(0.0, 1.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(
+                position: offsetAnimation,
+                child: child,
+              );
+            },
+            transitionDuration: caveTransition,
+          ),
+        );
+        break;
+      case 'AI Music':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AIMusicPage(
+              videoPath: widget.recordedVideo.path,
+              videoController: _videoController,
+            ),
+          ),
+        );
+        break;
+      case 'Edit Meta':
+        final result = await Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              GemMetaEditPage(
+                gemId: widget.gemId!,
+                gem: gem,
               ),
-              
-              // AI Object Detection page with fade transition
-              FadeTransition(
-                opacity: animation,
-                child: AIObjectDetectionPage(
-                  videoUrl: videoUrlToEdit,
-                  videoController: _videoController,
-                ),
-              ),
-            ],
-          );
-        },
-      );
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: caveTransition,
+          ),
+        );
+        
+        // Refresh the page if changes were made
+        if (result == true) {
+          setState(() {});
+        }
+        break;
+      case 'Trim':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoCropPage(
+              videoUrl: widget.cloudinaryUrl!,
+              onCropComplete: (String newUrl) {
+                // Handle the cropped video URL if needed
+              },
+            ),
+          ),
+        );
+        break;
+      case 'AI Object Detect':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AIObjectDetectionPage(
+              videoUrl: widget.cloudinaryUrl!,
+              videoController: _videoController,
+            ),
+          ),
+        );
+        break;
     }
   }
 
@@ -850,40 +766,64 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
   // Displays video content within a tile with play/pause controls
   // and loading states
   Widget _buildVideoContent(Map<String, dynamic> content) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        if (_videoController.value.isInitialized) 
-          SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _videoController.value.size.width,
-                height: _videoController.value.size.height,
-                child: VideoPlayer(_videoController),
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              CrystalVideoPlayerPage(
+                videoController: _videoController,
+              ),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(0.0, 1.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutQuart;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (_videoController.value.isInitialized) 
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _videoController.value.size.width,
+                  height: _videoController.value.size.height,
+                  child: VideoPlayer(_videoController),
+                ),
+              ),
+            )
+          else
+            const Center(
+              child: CircularProgressIndicator(
+                color: Colors.white,
               ),
             ),
-          )
-        else
-          const Center(
-            child: CircularProgressIndicator(
-              color: Colors.white,
+          if (!_videoController.value.isPlaying)
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withOpacity(0.5),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: const Icon(
+                Icons.play_arrow,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
-          ),
-        if (!_videoController.value.isPlaying)
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withOpacity(0.5),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: const Icon(
-              Icons.play_arrow,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -899,294 +839,181 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
     });
   }
 
-  Widget _buildTrashButton() {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: GestureDetector(
-        onTapDown: (_) {
-          _trashWobbleController.forward(from: 0);
-          HapticFeedback.mediumImpact();
-        },
-        onTapUp: (_) async {
-          // Show delete confirmation dialog
-          showGeneralDialog(
-            context: context,
-            barrierDismissible: true,
-            barrierLabel: 'Delete Confirmation',
-            barrierColor: deepCave.withOpacity(0.8),
-            transitionDuration: const Duration(milliseconds: 300),
-            pageBuilder: (context, animation, secondaryAnimation) {
-              // Start playing the audio
-              _audioPlayer.play();
-              
-              return Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 32),
-                  padding: const EdgeInsets.all(24),
+  void _showDeleteConfirmation() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Delete Confirmation',
+      barrierColor: deepCave.withOpacity(0.8),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        // Start playing the audio
+        _audioPlayer.play();
+        
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: caveShadow.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(emeraldCut),
+              border: Border.all(
+                color: ruby.withOpacity(0.3),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: ruby.withOpacity(0.2),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Animated trash icon
+                Container(
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: caveShadow.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(emeraldCut),
+                    color: ruby.withOpacity(0.1),
+                    shape: BoxShape.circle,
                     border: Border.all(
                       color: ruby.withOpacity(0.3),
-                      width: 2,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ruby.withOpacity(0.2),
-                        blurRadius: 20,
-                        spreadRadius: 5,
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Reuse our animated flies and fumes here
+                      ...List.generate(_fumes.length, (index) {
+                        return AnimatedBuilder(
+                          animation: _fumeController,
+                          builder: (context, child) {
+                            final fume = _fumes[index];
+                            final progress = _fumeController.value;
+                            final yOffset = fume.baseOffset.dy - (progress * 20);
+                            final xOffset = fume.baseOffset.dx + 
+                              math.sin(progress * math.pi * 2 + fume.phase) * 4;
+                            return Positioned(
+                              left: 30 + xOffset,
+                              top: 30 + yOffset,
+                              child: Transform.scale(
+                                scale: 0.8 + progress * 0.4,
+                                child: Opacity(
+                                  opacity: (1 - progress) * 0.6,
+                                  child: Text(
+                                    '~',
+                                    style: TextStyle(
+                                      color: ruby.withOpacity(0.6),
+                                      fontSize: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }),
+                      Center(
+                        child: Icon(
+                          Icons.delete_forever,
+                          color: ruby.withOpacity(0.8),
+                          size: 32,
+                        ),
                       ),
                     ],
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Animated trash icon
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: ruby.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                          border: Border.all(
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Are you sure you want to delete this gem?',
+                  style: crystalHeading.copyWith(
+                    fontSize: 18,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This action cannot be undone!',
+                  style: gemText.copyWith(
+                    color: ruby,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Cancel button
+                    TextButton(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.of(context).pop();
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor: sapphire.withOpacity(0.1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(emeraldCut),
+                          side: BorderSide(
+                            color: sapphire.withOpacity(0.3),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Cancel '),
+                          const Text('😱', style: TextStyle(fontSize: 20)),
+                        ],
+                      ),
+                    ),
+                    // Delete button
+                    TextButton(
+                      onPressed: () async {
+                        HapticFeedback.mediumImpact();
+                        Navigator.of(context).pop(true);
+                        await _deleteGem();
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor: ruby.withOpacity(0.1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(emeraldCut),
+                          side: BorderSide(
                             color: ruby.withOpacity(0.3),
                           ),
                         ),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // Reuse our animated flies and fumes here
-                            ...List.generate(_fumes.length, (index) {
-                              return AnimatedBuilder(
-                                animation: _fumeController,
-                                builder: (context, child) {
-                                  final fume = _fumes[index];
-                                  final progress = _fumeController.value;
-                                  final yOffset = fume.baseOffset.dy - (progress * 20);
-                                  final xOffset = fume.baseOffset.dx + 
-                                    math.sin(progress * math.pi * 2 + fume.phase) * 4;
-                                  return Positioned(
-                                    left: 30 + xOffset,
-                                    top: 30 + yOffset,
-                                    child: Transform.scale(
-                                      scale: 0.8 + progress * 0.4,
-                                      child: Opacity(
-                                        opacity: (1 - progress) * 0.6,
-                                        child: Text(
-                                          '~',
-                                          style: TextStyle(
-                                            color: ruby.withOpacity(0.6),
-                                            fontSize: 20,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            }),
-                            Center(
-                              child: Icon(
-                                Icons.delete_forever,
-                                color: ruby.withOpacity(0.8),
-                                size: 32,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Are you sure you want to delete this gem?',
-                        style: crystalHeading.copyWith(
-                          fontSize: 18,
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'This action cannot be undone!',
-                        style: gemText.copyWith(
-                          color: ruby,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Cancel button
-                          TextButton(
-                            onPressed: () {
-                              HapticFeedback.mediumImpact();
-                              Navigator.of(context).pop();
-                            },
-                            style: TextButton.styleFrom(
-                              backgroundColor: sapphire.withOpacity(0.1),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(emeraldCut),
-                                side: BorderSide(
-                                  color: sapphire.withOpacity(0.3),
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('Cancel '),
-                                const Text('😱', style: TextStyle(fontSize: 20)),
-                              ],
-                            ),
-                          ),
-                          // Delete button
-                          TextButton(
-                            onPressed: () async {
-                              HapticFeedback.mediumImpact();
-                              Navigator.of(context).pop(true);
-                              await _deleteGem();
-                            },
-                            style: TextButton.styleFrom(
-                              backgroundColor: ruby.withOpacity(0.1),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(emeraldCut),
-                                side: BorderSide(
-                                  color: ruby.withOpacity(0.3),
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('Delete '),
-                                const Text('😈', style: TextStyle(fontSize: 20)),
-                              ],
-                            ),
-                          ),
+                          const Text('Delete '),
+                          const Text('😈', style: TextStyle(fontSize: 20)),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ).then((_) {
-            // Stop the audio when dialog is closed
-            _audioPlayer.stop();
-          });
-        },
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: ruby.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(emeraldCut),
-            border: Border.all(
-              color: ruby.withOpacity(0.3),
+              ],
             ),
           ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Fumes
-              ...List.generate(_fumes.length, (index) {
-                return AnimatedBuilder(
-                  animation: _fumeController,
-                  builder: (context, child) {
-                    final fume = _fumes[index];
-                    final progress = _fumeController.value;
-                    final yOffset = fume.baseOffset.dy - (progress * 20);
-                    final xOffset = fume.baseOffset.dx + 
-                      math.sin(progress * math.pi * 2 + fume.phase) * 4;
-                    final opacity = (1 - progress) * 0.6;
-
-                    return Positioned(
-                      left: 20 + xOffset,
-                      top: 20 + yOffset,
-                      child: Transform.scale(
-                        scale: 0.8 + progress * 0.4,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: Text(
-                            '~',
-                            style: TextStyle(
-                              color: ruby.withOpacity(0.6),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }),
-
-              // Flies
-              ...List.generate(_flies.length, (index) {
-                return AnimatedBuilder(
-                  animation: _flyController,
-                  builder: (context, child) {
-                    final fly = _flies[index];
-                    final progress = _flyController.value;
-                    final xOffset = fly.baseOffset.dx + 
-                      math.sin(progress * math.pi * 4 + fly.phase) * 8;
-                    final yOffset = fly.baseOffset.dy + 
-                      math.cos(progress * math.pi * 2 + fly.phase) * 6;
-
-                    return Positioned(
-                      left: 20 + xOffset,
-                      top: 20 + yOffset,
-                      child: Text(
-                        '•',
-                        style: TextStyle(
-                          color: ruby.withOpacity(0.8),
-                          fontSize: 8,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }),
-
-              // Trash can
-              Center(
-                child: AnimatedBuilder(
-                  animation: _trashWobbleController,
-                  builder: (context, child) {
-                    return Transform.rotate(
-                      angle: math.sin(_trashWobbleController.value * math.pi * 2) * 0.1,
-                      child: Icon(
-                        Icons.delete_forever,
-                        color: ruby.withOpacity(0.8),
-                        size: 24,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Add method to toggle mute state
-  void _toggleMute() {
-    setState(() {
-      _isMuted = !_isMuted;
-      _videoController.setVolume(_isMuted ? 0.0 : 1.0);
+        );
+      },
+    ).then((_) {
+      // Stop the audio when dialog is closed
+      _audioPlayer.stop();
     });
-    HapticFeedback.mediumImpact();
   }
 
   @override
@@ -1206,73 +1033,108 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             title: Text(
-              'Gem Explorer',
+              'Crystal Explorer',
               style: crystalHeading.copyWith(fontSize: 20),
             ),
             actions: [
-              // Add mute button
-              IconButton(
-                icon: Icon(
-                  _isMuted ? Icons.volume_off : Icons.volume_up,
-                  color: _isMuted ? ruby : emerald,
-                ),
-                onPressed: _toggleMute,
-              ),
-              _buildTrashButton(),
-              if (widget.gemId != null) // Only show edit button for existing gems
-                Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: TextButton.icon(
-                    icon: const Icon(Icons.edit, color: emerald, size: 20),
-                    label: Text(
-                      'Edit Meta',
-                      style: gemText.copyWith(
-                        color: emerald,
-                        fontSize: 14,
+              if (widget.gemId != null) // Only show delete button for existing gems
+                GestureDetector(
+                  onTapDown: (_) {
+                    _trashWobbleController.forward(from: 0);
+                    HapticFeedback.mediumImpact();
+                  },
+                  onTapUp: (_) => _showDeleteConfirmation(),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: ruby.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(emeraldCut),
+                      border: Border.all(
+                        color: ruby.withOpacity(0.3),
                       ),
                     ),
-                    onPressed: () async {
-                      final gem = await _gemService.getGem(widget.gemId!);
-                      if (gem != null && mounted) {
-                        final result = await Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, animation, secondaryAnimation) => 
-                              GemMetaEditPage(
-                                gemId: widget.gemId!,
-                                gem: gem,
-                              ),
-                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.easeInOutQuart;
-                              var tween = Tween(begin: begin, end: end)
-                                  .chain(CurveTween(curve: curve));
-                              var offsetAnimation = animation.drive(tween);
-                              return SlideTransition(position: offsetAnimation, child: child);
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Fumes
+                        ...List.generate(_fumes.length, (index) {
+                          return AnimatedBuilder(
+                            animation: _fumeController,
+                            builder: (context, child) {
+                              final fume = _fumes[index];
+                              final progress = _fumeController.value;
+                              final yOffset = fume.baseOffset.dy - (progress * 20);
+                              final xOffset = fume.baseOffset.dx + 
+                                math.sin(progress * math.pi * 2 + fume.phase) * 4;
+                              final opacity = (1 - progress) * 0.6;
+
+                              return Positioned(
+                                left: 20 + xOffset,
+                                top: 20 + yOffset,
+                                child: Transform.scale(
+                                  scale: 0.8 + progress * 0.4,
+                                  child: Opacity(
+                                    opacity: opacity,
+                                    child: Text(
+                                      '~',
+                                      style: TextStyle(
+                                        color: ruby.withOpacity(0.6),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
                             },
-                            transitionDuration: caveTransition,
+                          );
+                        }),
+
+                        // Flies
+                        ...List.generate(_flies.length, (index) {
+                          return AnimatedBuilder(
+                            animation: _flyController,
+                            builder: (context, child) {
+                              final fly = _flies[index];
+                              final progress = _flyController.value;
+                              final xOffset = fly.baseOffset.dx + 
+                                math.sin(progress * math.pi * 4 + fly.phase) * 8;
+                              final yOffset = fly.baseOffset.dy + 
+                                math.cos(progress * math.pi * 2 + fly.phase) * 6;
+
+                              return Positioned(
+                                left: 20 + xOffset,
+                                top: 20 + yOffset,
+                                child: Text(
+                                  '•',
+                                  style: TextStyle(
+                                    color: ruby.withOpacity(0.8),
+                                    fontSize: 8,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        }),
+
+                        // Trash can
+                        Center(
+                          child: AnimatedBuilder(
+                            animation: _trashWobbleController,
+                            builder: (context, child) {
+                              return Transform.rotate(
+                                angle: math.sin(_trashWobbleController.value * math.pi * 2) * 0.1,
+                                child: Icon(
+                                  Icons.delete_forever,
+                                  color: ruby.withOpacity(0.8),
+                                  size: 24,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                        
-                        // Refresh the page if changes were made
-                        if (result == true) {
-                          setState(() {});
-                        }
-                      }
-                    },
-                    style: TextButton.styleFrom(
-                      backgroundColor: emerald.withOpacity(0.1),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(emeraldCut),
-                        side: BorderSide(
-                          color: emerald.withOpacity(0.3),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),

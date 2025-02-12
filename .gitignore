@@ -103,3 +103,6 @@ app.*.map.json
 
 # Session summaries
 /pingping/
+
+#LLM section (NOT for human eyes)
+one-shot.bytecode

@@ -12,6 +12,8 @@ import 'gem_meta_edit_page.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import '../services/contextual_music_service.dart' hide UnifiedContext;
+import '../models/unified_context.dart';
 
 class AIObjectDetectionPage extends StatefulWidget {
   final String videoUrl;
@@ -34,17 +36,20 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
   final GemService _gemService = GemService();
   final AuthService _authService = AuthService();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final ContextualMusicService _contextService = ContextualMusicService();
   late AnimationController _crystalController;
   List<String> _detectedObjects = [];
   bool _isAnalyzing = false;
   bool _isGeneratingMusic = false;
   bool _isSaving = false;
+  bool _hasStartedAnalysis = false;
   String? _error;
   String? _generatedLyrics;
   String? _generatedAudioUrl;
   String? _finalVideoUrl;
   String _selectedStyle = "Modern"; // Default style
   String _currentStep = '';
+  String? _gemId;
   
   // Available music styles from Uberduck
   final List<String> _musicStyles = [
@@ -89,19 +94,26 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
 
     setState(() {
       _isAnalyzing = true;
+      _hasStartedAnalysis = true;
       _isGeneratingMusic = false;
       _error = null;
       _currentStep = 'Analyzing video frame...';
       _generatedLyrics = null;
       _generatedAudioUrl = null;
+      _gemId = null;
     });
 
     try {
       HapticFeedback.mediumImpact();
       
-      // Step 1: Analyze video frame
-      print('🎬 Starting video analysis...');
-      final objects = await _analysisService.analyzeVideoFrame(widget.videoUrl);
+      // Step 1: Analyze video frame and gather context in parallel
+      print('🎬 Starting video analysis and context gathering...');
+      final Future<List<String>> objectsFuture = _analysisService.analyzeVideoFrame(widget.videoUrl);
+      final Future<UnifiedContext> contextFuture = _contextService.getUnifiedContext();
+      
+      final results = await Future.wait([objectsFuture, contextFuture]);
+      final objects = results[0] as List<String>;
+      final context = results[1] as UnifiedContext;
       
       if (!mounted) return;
       setState(() {
@@ -109,14 +121,31 @@ class _AIObjectDetectionPageState extends State<AIObjectDetectionPage> with Sing
         _currentStep = 'Generating lyrics...';
       });
 
-      // Step 2: Generate lyrics based on detected objects
-      print('🎵 Generating lyrics from detected objects...');
+      // Step 2: Generate lyrics based on detected objects and context
+      print('🎵 Generating lyrics with rich context...');
+      final locationVibe = '${context.location.ambiance} ${context.location.vibeWords.join(" ")}';
+      final timeContext = '${context.calendar.timeOfDay} in ${context.calendar.season}';
+      final weatherContext = '${context.weather.mood} weather (${context.weather.description})';
+      final nearbyContext = context.location.nearbyPlaces.isNotEmpty 
+          ? 'Near ${context.location.nearbyPlaces.take(2).join(" and ")}' 
+          : '';
+      final crowdContext = 'The scene is ${context.location.crowdLevel}';
+      
       final prompt = '''
-Create song lyrics (maximum 400 characters) that incorporate these themes: ${objects.join(", ")}.
+Create song lyrics (maximum 400 characters) that weave together these elements:
+- Detected objects: ${objects.join(", ")}
+- Location type: ${context.location.primaryCategory}
+- Current vibe: $locationVibe
+- Setting: $timeContext with $weatherContext
+- Place: ${context.location.locationName} in ${context.location.neighborhood}
+- Crowd & Scene: $crowdContext during ${context.location.timeContext}
+${nearbyContext.isNotEmpty ? '- Nearby: $nearbyContext' : ''}
+
 The lyrics should be in the style of $_selectedStyle music, but without directly mentioning the style.
 Do not include any section labels (verse, chorus, etc.) - just write the lyrics as continuous text.
-Make it professional and emotionally resonant. Only use normal a-z ascii characters, no special characters or emojis as they will break the generation. As a general hip-hop theme,
-the lyrics should be about the detected objects and the context of the video, and should select a cohesive rhyme scheme.
+Make it professional and emotionally resonant. Only use normal a-z ascii characters, no special characters or emojis.
+Create a cohesive narrative that connects the objects with the environment and atmosphere.
+Focus on clever wordplay and strong delivery that fits the location's vibe.
 ''';
 
       final lyrics = await _openAIService.generateLyrics(
@@ -221,7 +250,10 @@ the lyrics should be about the detected objects and the context of the video, an
       );
 
       if (!mounted) return;
-      setState(() => _currentStep = 'Opening metadata editor...');
+      setState(() {
+        _gemId = gem.id;
+        _currentStep = 'Gem created successfully! ✨';
+      });
 
       // Show metadata edit modal
       final shouldEditMetadata = await showDialog<bool>(
@@ -477,52 +509,31 @@ the lyrics should be about the detected objects and the context of the video, an
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isAnalyzing ? null : _analyzeVideo,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: sapphire.withOpacity(0.3),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 16,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(emeraldCut),
-                              side: BorderSide(
-                                color: sapphire.withOpacity(0.5),
-                              ),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_isAnalyzing)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8.0),
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        sapphire.withOpacity(0.8),
-                                      ),
+                        child: _hasStartedAnalysis 
+                            ? _buildProgressIndicator()
+                            : ElevatedButton(
+                                onPressed: _isAnalyzing ? null : _analyzeVideo,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: sapphire.withOpacity(0.3),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                    horizontal: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(emeraldCut),
+                                    side: BorderSide(
+                                      color: sapphire.withOpacity(0.5),
                                     ),
                                   ),
                                 ),
-                              Flexible(
                                 child: Text(
-                                  _isAnalyzing ? _currentStep : 'Analyze Video Frame',
+                                  'Analyze Video Frame 👁️✨',
                                   style: crystalHeading.copyWith(
                                     fontSize: 18,
                                     color: Colors.white,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (!_isAnalyzing) const Text(' 👁️✨'),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -760,6 +771,57 @@ the lyrics should be about the detected objects and the context of the video, an
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildProgressIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      decoration: BoxDecoration(
+        color: sapphire.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(emeraldCut),
+        border: Border.all(
+          color: sapphire.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_gemId != null) ...[
+            Icon(
+              Icons.check_circle_outline,
+              color: emerald,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Gem Created Successfully! ✨',
+              style: crystalHeading.copyWith(
+                fontSize: 16,
+                color: emerald,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ] else ...[
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _currentStep,
+              style: gemText.copyWith(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
