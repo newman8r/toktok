@@ -334,10 +334,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             setState(() {
               print('Video dimensions: ${_videoController.value.size}');
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
-              _videoController.play();
               _videoController.setLooping(true);
               _videoController.setVolume(1.0);  // Set initial volume
-              print('Video initialized and playing');
+              print('Video initialized');
             });
           }
         }).catchError((error) {
@@ -351,10 +350,9 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
             setState(() {
               print('Video dimensions: ${_videoController.value.size}');
               print('Video aspect ratio: ${_videoController.value.aspectRatio}');
-              _videoController.play();
               _videoController.setLooping(true);
               _videoController.setVolume(1.0);  // Set initial volume
-              print('Video initialized and playing');
+              print('Video initialized');
             });
           }
         }).catchError((error) {
