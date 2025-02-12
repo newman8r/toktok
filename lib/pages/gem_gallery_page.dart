@@ -48,6 +48,7 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
   int _hiddenGemsCount = 0;
   bool _isLoading = true;
   String? _error;
+  late FocusNode _pageFocusNode;
 
   @override
   void initState() {
@@ -64,6 +65,23 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     )..forward();
 
     _searchController.addListener(_handleSearch);
+    
+    // Initialize focus node
+    _pageFocusNode = FocusNode();
+    
+    // Add listener for focus changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pageFocusNode.addListener(() {
+        if (_pageFocusNode.hasFocus) {
+          _loadUserGems();
+        }
+      });
+      
+      // Request focus to trigger initial load
+      _pageFocusNode.requestFocus();
+    });
+    
+    // Initial load
     _loadUserGems();
   }
 
@@ -146,181 +164,185 @@ class _GemGalleryPageState extends State<GemGalleryPage> with TickerProviderStat
     _shimmerController.dispose();
     _crystalGrowthController.dispose();
     _searchController.dispose();
+    _pageFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Try to pop normally
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        } else {
-          // If we can't pop, go to CreatorStudio instead of black screen
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreatorStudioPage(),
-            ),
-          );
-        }
-        return false; // We handle the navigation ourselves
-      },
-      child: Scaffold(
-        backgroundColor: deepCave,
-        body: Stack(
-          children: [
-            // Animated crystal cave background
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _shimmerController,
-                builder: (context, child) {
-                  return CustomPaint(
-                    painter: _CrystalBackgroundPainter(
-                      progress: _shimmerController.value,
-                    ),
-                  );
-                },
+    return Focus(
+      focusNode: _pageFocusNode,
+      child: WillPopScope(
+        onWillPop: () async {
+          // Try to pop normally
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            // If we can't pop, go to CreatorStudio instead of black screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreatorStudioPage(),
               ),
-            ),
-            
-            // Main content
-            SafeArea(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  HapticFeedback.mediumImpact();
-                  await _loadUserGems();
-                },
-                color: amethyst,
-                backgroundColor: deepCave,
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    // Crystal App Bar
-                    _buildCrystalAppBar(),
-                    
-                    // Pull to refresh
-                    CupertinoSliverRefreshControl(
-                      onRefresh: _loadUserGems,
-                      builder: (context, refreshState, pulledExtent, refreshTriggerPullDistance, refreshIndicatorExtent) {
-                        return Center(
-                          child: Container(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: const CircularProgressIndicator(
-                              color: amethyst,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    
-                    // Stats Section
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            _buildSearchBar(),
-                            const SizedBox(height: 16),
-                            _buildTagSuggestions(),
-                            const SizedBox(height: 24),
-                            _buildStatsSection(),
-                          ],
-                        ),
+            );
+          }
+          return false; // We handle the navigation ourselves
+        },
+        child: Scaffold(
+          backgroundColor: deepCave,
+          body: Stack(
+            children: [
+              // Animated crystal cave background
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _shimmerController,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _CrystalBackgroundPainter(
+                        progress: _shimmerController.value,
                       ),
-                    ),
-
-                    // Gallery Grid or Loading/Error State
-                    if (_isLoading)
-                      const SliverFillRemaining(
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: amethyst,
-                          ),
-                        ),
-                      )
-                    else if (_error != null)
-                      SliverFillRemaining(
-                        child: Center(
+                    );
+                  },
+                ),
+              ),
+              
+              // Main content
+              SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    HapticFeedback.mediumImpact();
+                    await _loadUserGems();
+                  },
+                  color: amethyst,
+                  backgroundColor: deepCave,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      // Crystal App Bar
+                      _buildCrystalAppBar(),
+                      
+                      // Pull to refresh
+                      CupertinoSliverRefreshControl(
+                        onRefresh: _loadUserGems,
+                        builder: (context, refreshState, pulledExtent, refreshTriggerPullDistance, refreshIndicatorExtent) {
+                          return Center(
+                            child: Container(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: const CircularProgressIndicator(
+                                color: amethyst,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      
+                      // Stats Section
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.error_outline,
-                                color: ruby,
-                                size: 64,
-                              ),
+                              _buildSearchBar(),
                               const SizedBox(height: 16),
-                              Text(
-                                _error!,
-                                style: gemText.copyWith(color: ruby),
-                                textAlign: TextAlign.center,
-                              ),
+                              _buildTagSuggestions(),
                               const SizedBox(height: 24),
-                              GemButton(
-                                text: 'Try Again',
-                                onPressed: _loadUserGems,
-                                gemColor: emerald,
-                                isAnimated: true,
-                              ),
+                              _buildStatsSection(),
                             ],
                           ),
                         ),
-                      )
-                    else if (_userGems.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      ),
+
+                      // Gallery Grid or Loading/Error State
+                      if (_isLoading)
+                        const SliverFillRemaining(
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: amethyst,
+                            ),
+                          ),
+                        )
+                      else if (_error != null)
+                        SliverFillRemaining(
+                          child: Center(
                             child: Column(
-                              mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.diamond_outlined,
-                                  color: silver,
+                                  Icons.error_outline,
+                                  color: ruby,
                                   size: 64,
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'No gems found in your collection yet.',
-                                  style: gemText.copyWith(
-                                    color: silver,
-                                    fontSize: 18,
-                                  ),
+                                  _error!,
+                                  style: gemText.copyWith(color: ruby),
                                   textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                GemButton(
+                                  text: 'Try Again',
+                                  onPressed: _loadUserGems,
+                                  gemColor: emerald,
+                                  isAnimated: true,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.all(16.0),
-                        sliver: SliverGrid(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 16.0,
-                            crossAxisSpacing: 16.0,
-                            childAspectRatio: 1.0,
+                        )
+                      else if (_userGems.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.diamond_outlined,
+                                    color: silver,
+                                    size: 64,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No gems found in your collection yet.',
+                                    style: gemText.copyWith(
+                                      color: silver,
+                                      fontSize: 18,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final gem = _filteredGems[index];
-                              return _buildGemCard(gem);
-                            },
-                            childCount: _filteredGems.length,
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.all(16.0),
+                          sliver: SliverGrid(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 16.0,
+                              crossAxisSpacing: 16.0,
+                              childAspectRatio: 1.0,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final gem = _filteredGems[index];
+                                return _buildGemCard(gem);
+                              },
+                              childCount: _filteredGems.length,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
