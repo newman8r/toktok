@@ -592,6 +592,11 @@ class _GemExplorerPageState extends State<GemExplorerPage> with TickerProviderSt
 
     if (!mounted) return;
 
+    // Trigger the navigation animation in the direction of the clicked option
+    if (option['direction'] != null) {
+      await _navigate(option['direction']);
+    }
+
     switch (option['name']) {
       case 'AI Music Magic':
         Navigator.push(
