@@ -405,8 +405,8 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                         ],
                       ),
                       const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           GemButton(
                             text: '🎵 Accept Melody',
@@ -457,6 +457,7 @@ class _AIMusicPageState extends State<AIMusicPage> with TickerProviderStateMixin
                             gemColor: emerald,
                             isAnimated: true,
                           ),
+                          const SizedBox(height: 16),  // Add spacing between buttons
                           GemButton(
                             text: '✨ Try Again',
                             onPressed: () {

@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'langsmith_service.dart';
 
 class ReplicateService {
   static final String _baseUrl = dotenv.env['REPLICATE_BASE_URL'] ?? 'https://api.replicate.com/v1/predictions';
   static final String _apiKey = dotenv.env['REPLICATE_API_KEY'] ?? '';
   static final String _modelVersion = dotenv.env['REPLICATE_MODEL'] ?? '6c9132aee14409cd6568d030453f1ba50f5f3412b844fe67f78a9eb62d55664f';
+  final LangSmithService _langSmith = LangSmithService();
 
   /// Available parameters for the Hunyuan video model:
   /// - prompt: The text description of the video to generate
@@ -26,62 +28,80 @@ class ReplicateService {
     double guidanceScale = 9.0,
     int? seed,
   }) async {
-    try {
-      print('🎬 Starting video generation...');
-      print('📝 Prompt: $prompt');
-      
-      if (_apiKey.isEmpty) {
-        throw Exception('Replicate API key not found in environment variables');
-      }
-
-      // Prepare the input parameters
-      final input = {
+    return _langSmith.traceAsync<Map<String, dynamic>>(
+      name: 'Generate Video',
+      runType: 'llm',
+      inputs: {
+        'model': 'tencent-hunyuan-video',
         'prompt': prompt,
+        'negative_prompt': negativePrompt,
         'num_frames': numFrames,
         'width': width,
         'height': height,
         'num_inference_steps': numInferenceSteps,
         'guidance_scale': guidanceScale,
-      };
+        'seed': seed,
+        'model_version': _modelVersion,
+      },
+      operation: () async {
+        try {
+          print('🎬 Starting video generation...');
+          print('📝 Prompt: $prompt');
+          
+          if (_apiKey.isEmpty) {
+            throw Exception('Replicate API key not found in environment variables');
+          }
 
-      // Add optional parameters if provided
-      if (negativePrompt != null) {
-        input['negative_prompt'] = negativePrompt;
-      }
-      if (seed != null) {
-        input['seed'] = seed;
-      }
+          // Prepare the input parameters
+          final input = {
+            'prompt': prompt,
+            'num_frames': numFrames,
+            'width': width,
+            'height': height,
+            'num_inference_steps': numInferenceSteps,
+            'guidance_scale': guidanceScale,
+          };
 
-      print('🔧 Configuration:');
-      input.forEach((key, value) => print('   $key: $value'));
+          // Add optional parameters if provided
+          if (negativePrompt != null) {
+            input['negative_prompt'] = negativePrompt;
+          }
+          if (seed != null) {
+            input['seed'] = seed;
+          }
 
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'version': _modelVersion,
-          'input': input,
-        }),
-      );
+          print('🔧 Configuration:');
+          input.forEach((key, value) => print('   $key: $value'));
 
-      print('📥 Response status: ${response.statusCode}');
-      print('📥 Response body: ${response.body}');
+          final response = await http.post(
+            Uri.parse(_baseUrl),
+            headers: {
+              'Authorization': 'Bearer $_apiKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'version': _modelVersion,
+              'input': input,
+            }),
+          );
 
-      if (response.statusCode == 201 || response.statusCode == 202) {
-        final data = jsonDecode(response.body);
-        
-        // Always poll for completion since video generation takes time
-        return await _pollForCompletion(data['id']);
-      } else {
-        throw Exception('Failed to start video generation: ${response.body}');
-      }
-    } catch (e) {
-      print('❌ Error generating video: $e');
-      rethrow;
-    }
+          print('📥 Response status: ${response.statusCode}');
+          print('📥 Response body: ${response.body}');
+
+          if (response.statusCode == 201 || response.statusCode == 202) {
+            final data = jsonDecode(response.body);
+            
+            // Always poll for completion since video generation takes time
+            return await _pollForCompletion(data['id']);
+          } else {
+            throw Exception('Failed to start video generation: ${response.body}');
+          }
+        } catch (e) {
+          print('❌ Error generating video: $e');
+          rethrow;
+        }
+      },
+    );
   }
 
   Future<Map<String, dynamic>> _pollForCompletion(String predictionId) async {

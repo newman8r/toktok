@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:math' as math;
+import 'langsmith_service.dart';
 
 class UberduckService {
   static final String _baseUrl = 'https://api.uberduck.ai';
   static String? get _apiKey => dotenv.env['UBERDUCK_API_KEY'];
   static String? get _apiSecret => dotenv.env['UBERDUCK_API_SECRET'];
+  static final LangSmithService _langSmith = LangSmithService();
 
   // Basic auth header using API key and secret
   static String get _authHeader => 'Basic ${base64Encode(
@@ -19,50 +21,62 @@ class UberduckService {
     required String style_preset,
     required String voicemodel_uuid,
   }) async {
-    print('🎵 Attempting to generate song with lyrics: ${lyrics.substring(0, math.min(50, lyrics.length))}...');
-    print('🎸 Style preset: $style_preset');
-    print('🎤 Voice model UUID: $voicemodel_uuid');
+    return _langSmith.traceAsync<Map<String, dynamic>>(
+      name: 'Generate Song',
+      runType: 'llm',
+      inputs: {
+        'model': 'uberduck',
+        'lyrics': lyrics,
+        'style_preset': style_preset,
+        'voicemodel_uuid': voicemodel_uuid,
+      },
+      operation: () async {
+        print('🎵 Attempting to generate song with lyrics: ${lyrics.substring(0, math.min(50, lyrics.length))}...');
+        print('🎸 Style preset: $style_preset');
+        print('🎤 Voice model UUID: $voicemodel_uuid');
 
-    if (_apiKey == null || _apiSecret == null) {
-      print('❌ API credentials missing!');
-      throw Exception('Uberduck API credentials not found in environment variables');
-    }
+        if (_apiKey == null || _apiSecret == null) {
+          print('❌ API credentials missing!');
+          throw Exception('Uberduck API credentials not found in environment variables');
+        }
 
-    final requestBody = {
-      'lyrics': lyrics,
-      'style_preset': style_preset,
-      'voicemodel_uuid': voicemodel_uuid,
-    };
+        final requestBody = {
+          'lyrics': lyrics,
+          'style_preset': style_preset,
+          'voicemodel_uuid': voicemodel_uuid,
+        };
 
-    print('📤 Sending request to $_baseUrl/generate-song');
-    print('📦 Request body: $requestBody');
+        print('📤 Sending request to $_baseUrl/generate-song');
+        print('📦 Request body: $requestBody');
 
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/generate-song'),
-        headers: {
-          'Authorization': _authHeader,
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      );
+        try {
+          final response = await http.post(
+            Uri.parse('$_baseUrl/generate-song'),
+            headers: {
+              'Authorization': _authHeader,
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(requestBody),
+          );
 
-      print('📥 Response status code: ${response.statusCode}');
-      print('📥 Response body: ${response.body}');
+          print('📥 Response status code: ${response.statusCode}');
+          print('📥 Response body: ${response.body}');
 
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        print('✅ Successfully generated song. Response data: $responseData');
-        return responseData;
-      } else {
-        final errorBody = jsonDecode(response.body);
-        print('❌ Failed to generate song. Error body: $errorBody');
-        throw Exception(errorBody['detail'] ?? 'Failed to generate song');
-      }
-    } catch (e) {
-      print('❌ Exception during song generation: $e');
-      rethrow;
-    }
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            print('✅ Successfully generated song. Response data: $responseData');
+            return responseData;
+          } else {
+            final errorBody = jsonDecode(response.body);
+            print('❌ Failed to generate song. Error body: $errorBody');
+            throw Exception(errorBody['detail'] ?? 'Failed to generate song');
+          }
+        } catch (e) {
+          print('❌ Exception during song generation: $e');
+          rethrow;
+        }
+      },
+    );
   }
 
   // Check the status of a generation
